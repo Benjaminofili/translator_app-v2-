@@ -13,6 +13,9 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+
+        // ✅ Required for flutter_local_notifications
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -28,6 +31,8 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        vectorDrawables.useSupportLibrary = true
     }
 
     buildTypes {
@@ -37,6 +42,12 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+}
+
+dependencies {
+
+    // ✅ Required for Java 8 desugaring
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
 
 flutter {

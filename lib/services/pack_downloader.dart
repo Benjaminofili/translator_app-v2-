@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:http/http.dart' as http;
+import 'package:prototype_ai_core/core/utils/format_utils.dart';
+import 'package:prototype_ai_core/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:archive/archive_io.dart';
 import '../core/constants/app_constants.dart';
@@ -13,6 +15,7 @@ class PackDownloader {
   factory PackDownloader() => _instance;
   PackDownloader._internal();
 
+  final NotificationService _notificationService = NotificationService();
   final Map<String, DownloadProgress> _activeDownloads = {};
   final Map<String, bool> _pausedDownloads = {}; // Track paused state
   final Map<String, StreamSubscription?> _activeStreams = {};
@@ -383,6 +386,7 @@ class PackDownloader {
   // PROGRESS TRACKING
   // ═══════════════════════════════════════════════════════════════
 
+// Replace your existing _updateProgress method with this:
   void _updateProgress(
       String packId,
       DownloadStatus status,
@@ -390,17 +394,49 @@ class PackDownloader {
         int? downloadedBytes,
         double? bytesPerSecond,
       }) {
+    final totalBytes = AppConstants.availablePacks[packId]?.sizeInBytes ?? 0;
+
     final progressData = DownloadProgress(
       packId: packId,
       status: status,
       progress: progress.clamp(0.0, 1.0),
       downloadedBytes: downloadedBytes ?? 0,
-      totalBytes: AppConstants.availablePacks[packId]?.sizeInBytes ?? 0,
+      totalBytes: totalBytes,
       bytesPerSecond: bytesPerSecond,
     );
 
     _activeDownloads[packId] = progressData;
     _progressController.add(progressData);
+
+    // 🔔 Add notification updates
+    if (status == DownloadStatus.downloading) {
+      _notificationService.showDownloadProgress(
+        packId: packId,
+        packName: AppConstants.availablePacks[packId]?.name ?? packId,
+        progress: (progress * 100).round(),
+        downloadedBytes: downloadedBytes ?? 0,
+        totalBytes: totalBytes,
+        speed: bytesPerSecond != null
+            ? FormatUtils.formatSpeed(bytesPerSecond)
+            : null,
+      );
+    } else if (status == DownloadStatus.completed) {
+      // Show completion notification
+      _notificationService.showDownloadCompleted(
+        packId: packId,
+        packName: AppConstants.availablePacks[packId]?.name ?? packId,
+      );
+    } else if (status == DownloadStatus.failed) {
+      // Cancel notification on failure
+      _notificationService.cancelDownloadNotification();
+    } else if (status == DownloadStatus.paused) {
+      // Show paused notification
+      _notificationService.showDownloadPaused(
+        packId: packId,
+        packName: AppConstants.availablePacks[packId]?.name ?? packId,
+        progress: (progress * 100).round(),
+      );
+    }
   }
 
   DownloadProgress? getProgress(String packId) {

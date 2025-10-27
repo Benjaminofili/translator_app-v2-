@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:prototype_ai_core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
 import 'core/utils/logger_utils.dart';
@@ -32,15 +33,22 @@ void main() async {
 
   // Initialize model service
   final modelService = ModelService();
-  final initialized = await modelService.initialize();
+  final modelInitialized = await modelService.initialize();
 
-  if (initialized) {
+  // Initialize notification service
+  final notificationService = NotificationService();
+  final notificationsInitialized = await notificationService.initialize();
+
+  if (notificationsInitialized) {
+    await notificationService.requestPermissions();
+  }
+
+  if (modelInitialized && notificationsInitialized) {
     Logger.success('MAIN', 'All services initialized');
   } else {
     Logger.warning('MAIN', 'Some services failed to initialize');
   }
 
-  // Run app
   runApp(const VoiceTranslatorApp());
 }
 

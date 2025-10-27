@@ -31,6 +31,14 @@ class AppConstants {
 
   /// Available language packs with their sizes
   static const Map<String, LanguagePackInfo> availablePacks = {
+    'test-pack': LanguagePackInfo(
+      id: 'test-pack',
+      name: 'Download Pack',
+      sourceLanguage: 'test',
+      targetLanguage: 'en',
+      sizeInMB: 1,
+      fileName: 'test-pack-v1.0.0.zip',
+    ),
     'en-es': LanguagePackInfo(
       id: 'en-es',
       name: 'English ↔ Spanish',
