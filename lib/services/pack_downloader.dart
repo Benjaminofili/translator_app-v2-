@@ -8,6 +8,7 @@ import 'package:archive/archive_io.dart';
 import '../core/constants/app_constants.dart';
 import '../core/utils/storage_utils.dart';
 import '../core/utils/logger_utils.dart';
+import 'background_service.dart';
 
 /// 📦 Language Pack Downloader with Pause/Resume
 class PackDownloader {
@@ -16,8 +17,10 @@ class PackDownloader {
   PackDownloader._internal();
 
   final NotificationService _notificationService = NotificationService();
+  final BackgroundDownloadService _backgroundService = BackgroundDownloadService();
   final Map<String, DownloadProgress> _activeDownloads = {};
   final Map<String, bool> _pausedDownloads = {}; // Track paused state
+  final Map<String, String> _partialDownloads = {};
   final Map<String, StreamSubscription?> _activeStreams = {};
   final StreamController<DownloadProgress> _progressController =
   StreamController<DownloadProgress>.broadcast();
@@ -27,16 +30,21 @@ class PackDownloader {
   Future<void> init() async {
     final prefs = await SharedPreferences.getInstance();
     final pausedKeys = prefs.getKeys().where((key) => key.startsWith('download_'));
+
     for (var key in pausedKeys) {
       final data = prefs.getString(key);
       if (data != null) {
         final parts = data.split('|');
-        if (parts.length == 3) {
+        if (parts.length == 4) { // Changed from 3 to 4 (added filePath)
           final packId = key.replaceFirst('download_', '');
           final url = parts[0];
           final downloadedBytes = int.parse(parts[1]);
           final totalBytes = int.parse(parts[2]);
+          final filePath = parts[3];
+
           _pausedDownloads[packId] = true;
+          _partialDownloads[packId] = filePath; // Store partial file path
+
           _activeDownloads[packId] = DownloadProgress(
             packId: packId,
             status: DownloadStatus.paused,
@@ -44,6 +52,7 @@ class PackDownloader {
             downloadedBytes: downloadedBytes,
             totalBytes: totalBytes,
           );
+
           Logger.info('DOWNLOAD', 'Restored paused download: $packId ($downloadedBytes/$totalBytes bytes)');
         }
       }
@@ -76,6 +85,8 @@ class PackDownloader {
         return DownloadResult.error('Pack is already installed');
       }
 
+      // 🆕 Register background task
+      await _backgroundService.startBackgroundDownload(packId);
       Logger.download('Starting download: $packId (${packInfo.formattedSize})');
 
       _activeDownloads[packId] = DownloadProgress(
@@ -89,7 +100,7 @@ class PackDownloader {
       _progressController.add(_activeDownloads[packId]!);
 
       // Download
-      final zipPath = await _downloadFile(packId, packInfo.downloadUrl, packInfo.sizeInBytes);
+      final zipPath = await _downloadFileWithResume(packId, packInfo.downloadUrl, packInfo.sizeInBytes);
 
       if (zipPath == null) {
         _updateProgress(packId, DownloadStatus.failed, 0.0);
@@ -149,19 +160,35 @@ class PackDownloader {
     try {
       Logger.info('DOWNLOAD', 'Pausing download: $packId');
 
-      // Mark as paused
-      _pausedDownloads[packId] = true;
-
-      // Cancel the stream
+      // Cancel the stream first
       final subscription = _activeStreams[packId];
       if (subscription != null) {
         await subscription.cancel();
         _activeStreams.remove(packId);
       }
 
-      // Update status to paused
+      // Save pause state to SharedPreferences
       final currentProgress = _activeDownloads[packId];
       if (currentProgress != null) {
+        final packInfo = AppConstants.availablePacks[packId];
+        if (packInfo != null) {
+          final prefs = await SharedPreferences.getInstance();
+          final filePath = _partialDownloads[packId] ??
+              await StorageUtils.getDownloadPath(packInfo.fileName);
+
+          // Save: url|downloadedBytes|totalBytes|filePath
+          await prefs.setString(
+            'download_$packId',
+            '${packInfo.downloadUrl}|${currentProgress.downloadedBytes}|${currentProgress.totalBytes}|$filePath',
+          );
+
+          Logger.info('DOWNLOAD', 'Saved pause state: ${currentProgress.downloadedBytes} bytes');
+        }
+
+        // Mark as paused
+        _pausedDownloads[packId] = true;
+
+        // Update status to paused
         _updateProgress(
           packId,
           DownloadStatus.paused,
@@ -187,18 +214,91 @@ class PackDownloader {
 
     try {
       Logger.info('DOWNLOAD', 'Resuming download: $packId');
+      await _backgroundService.resumeBackgroundDownload(packId);
+      final packInfo = AppConstants.availablePacks[packId];
+      if (packInfo == null) {
+        return DownloadResult.error('Pack not found: $packId');
+      }
 
-      // Remove pause flag FIRST
+      // Get saved progress
+      final prefs = await SharedPreferences.getInstance();
+      final savedData = prefs.getString('download_$packId');
+
+      int resumeFrom = 0;
+      String? existingFilePath;
+
+      if (savedData != null) {
+        final parts = savedData.split('|');
+        if (parts.length >= 2) {
+          resumeFrom = int.parse(parts[1]);
+          if (parts.length >= 4) {
+            existingFilePath = parts[3];
+          }
+        }
+      }
+
+      Logger.info('DOWNLOAD', 'Resuming from byte: $resumeFrom');
+
+      // Remove pause flag
       _pausedDownloads.remove(packId);
 
-      // Remove from active downloads to allow restart
-      _activeDownloads.remove(packId);
+      // Update status to downloading
+      _updateProgress(
+        packId,
+        DownloadStatus.downloading,
+        resumeFrom / packInfo.sizeInBytes,
+        downloadedBytes: resumeFrom,
+      );
 
-      // Clear any existing streams
-      _activeStreams.remove(packId);
+      // Resume download with HTTP Range
+      final zipPath = await _downloadFileWithResume(
+        packId,
+        packInfo.downloadUrl,
+        packInfo.sizeInBytes,
+        resumeFrom: resumeFrom,
+        existingFilePath: existingFilePath,
+      );
 
-      // Resume download from beginning (full implementation would use HTTP Range)
-      return await downloadPack(packId);
+      if (zipPath == null) {
+        _updateProgress(packId, DownloadStatus.failed, 0.0);
+        _activeDownloads.remove(packId);
+        return DownloadResult.error('Download failed');
+      }
+
+      // Clear saved pause state
+      await prefs.remove('download_$packId');
+      _partialDownloads.remove(packId);
+
+      // Extract
+      _updateProgress(packId, DownloadStatus.extracting, 0.9);
+      final extractSuccess = await _extractPack(packId, zipPath);
+
+      if (!extractSuccess) {
+        _updateProgress(packId, DownloadStatus.failed, 0.9);
+        _activeDownloads.remove(packId);
+        return DownloadResult.error('Extraction failed');
+      }
+
+      // Verify
+      _updateProgress(packId, DownloadStatus.verifying, 0.95);
+      final isValid = await StorageUtils.verifyPackIntegrity(packId);
+
+      if (!isValid) {
+        _updateProgress(packId, DownloadStatus.failed, 0.95);
+        await StorageUtils.deleteLanguagePack(packId);
+        _activeDownloads.remove(packId);
+        return DownloadResult.error('Pack verification failed');
+      }
+
+      await _cleanupTempFile(zipPath);
+      _updateProgress(packId, DownloadStatus.completed, 1.0);
+
+      Future.delayed(const Duration(milliseconds: 500), () {
+        _activeDownloads.remove(packId);
+      });
+
+      Logger.success('DOWNLOAD', 'Pack installed successfully: $packId');
+      return DownloadResult.success(packId);
 
     } catch (e, stackTrace) {
       Logger.error('DOWNLOAD', 'Resume failed', e, stackTrace);
@@ -230,17 +330,22 @@ class PackDownloader {
       _activeDownloads.remove(packId);
       _pausedDownloads.remove(packId);
 
+      // Clear saved state
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('download_$packId');
+
       // Cleanup partial files
       try {
-        final packInfo = AppConstants.availablePacks[packId];
-        if (packInfo != null) {
-          final zipPath = await StorageUtils.getDownloadPath(packInfo.fileName);
-          await StorageUtils.deleteFile(zipPath);
+        final partialPath = _partialDownloads[packId];
+        if (partialPath != null) {
+          await StorageUtils.deleteFile(partialPath);
+          _partialDownloads.remove(packId);
         }
       } catch (e) {
         Logger.warning('DOWNLOAD', 'Cleanup failed: $e');
       }
-
+      // 🆕 Cancel background task
+      await _backgroundService.cancelBackgroundDownload(packId);
       Logger.success('DOWNLOAD', 'Download cancelled: $packId');
       return true;
 
@@ -254,27 +359,54 @@ class PackDownloader {
   // PRIVATE DOWNLOAD METHODS
   // ═══════════════════════════════════════════════════════════════
 
-  Future<String?> _downloadFile(String packId, String url, int totalBytes) async {
+  Future<String?> _downloadFileWithResume(
+      String packId,
+      String url,
+      int totalBytes, {
+        int resumeFrom = 0,
+        String? existingFilePath,
+      }) async {
     try {
       final fileName = url.split('/').last;
-      final savePath = await StorageUtils.getDownloadPath(fileName);
+      final savePath = existingFilePath ?? await StorageUtils.getDownloadPath(fileName);
+
+      // Store partial file path
+      _partialDownloads[packId] = savePath;
 
       Logger.download('Downloading from: $url');
       Logger.download('Saving to: $savePath');
+      if (resumeFrom > 0) {
+        Logger.info('DOWNLOAD', 'Resuming from byte: $resumeFrom');
+      }
 
       final client = http.Client();
       final request = http.Request('GET', Uri.parse(url));
+
+      // Add Range header for resume
+      if (resumeFrom > 0) {
+        request.headers['Range'] = 'bytes=$resumeFrom-';
+        Logger.info('DOWNLOAD', 'Using HTTP Range: bytes=$resumeFrom-');
+      }
+
       final response = await client.send(request);
 
-      if (response.statusCode != 200) {
+      // Check status codes
+      if (response.statusCode != 200 && response.statusCode != 206) {
         Logger.error('DOWNLOAD', 'HTTP ${response.statusCode}');
         client.close();
         return null;
       }
 
+      // Verify server supports ranges if resuming
+      if (resumeFrom > 0 && response.statusCode != 206) {
+        Logger.warning('DOWNLOAD', 'Server does not support Range requests, restarting from beginning');
+        resumeFrom = 0;
+      }
+
       final file = File(savePath);
-      final sink = file.openWrite();
-      int downloadedBytes = 0;
+      final sink = file.openWrite(mode: resumeFrom > 0 ? FileMode.append : FileMode.write);
+
+      int downloadedBytes = resumeFrom;
       final startTime = DateTime.now();
       int lastUpdateTime = DateTime.now().millisecondsSinceEpoch;
 
@@ -299,7 +431,7 @@ class PackDownloader {
           if (now - lastUpdateTime >= 500) {
             final progress = downloadedBytes / totalBytes;
             final elapsed = DateTime.now().difference(startTime).inSeconds;
-            final speed = elapsed > 0 ? (downloadedBytes / elapsed).toDouble() : 0.0;
+            final speed = elapsed > 0 ? ((downloadedBytes - resumeFrom) / elapsed).toDouble() : 0.0;
 
             _updateProgress(
               packId,

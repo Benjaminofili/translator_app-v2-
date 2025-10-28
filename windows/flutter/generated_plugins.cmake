@@ -3,7 +3,11 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  audioplayers_windows
+  battery_plus
+  connectivity_plus
   permission_handler_windows
+  record_windows
   rive_common
 )
 

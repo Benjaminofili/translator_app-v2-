@@ -37,8 +37,13 @@
 	<key>UIBackgroundModes</key>
     <array>
         <string>fetch</string>
+        <string>processing</string>
         <string>remote-notification</string>
     </array>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>Allow network access to download language packs</string>
+    <key>NSUserTrackingUsageDescription</key>
+    <string>We need notification permissions to show download progress</string>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:prototype_ai_core/services/notification_service.dart';
+import 'package:prototype_ai_core/services/background_service.dart'; // Added import
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
 import 'core/utils/logger_utils.dart';
 import 'services/model_service.dart';
+import 'services/pack_downloader.dart'; // Added import
 import 'features/language_packs/screens/pack_management_screen.dart';
+import 'package:prototype_ai_core/features/translator/screens/translation_screen.dart';
 
 void main() async {
   // Ensure Flutter binding is initialized
@@ -43,7 +46,21 @@ void main() async {
     await notificationService.requestPermissions();
   }
 
-  if (modelInitialized && notificationsInitialized) {
+  // Initialize background download service
+  final backgroundService = BackgroundDownloadService();
+  final backgroundInitialized = await backgroundService.initialize();
+
+  if (backgroundInitialized) {
+    // Start periodic check for paused downloads
+    await backgroundService.startPeriodicCheck();
+    Logger.success('MAIN', 'Background service initialized');
+  }
+
+  // Initialize pack downloader
+  final downloader = PackDownloader();
+  await downloader.init();
+
+  if (modelInitialized && notificationsInitialized && backgroundInitialized) {
     Logger.success('MAIN', 'All services initialized');
   } else {
     Logger.warning('MAIN', 'Some services failed to initialize');
@@ -145,6 +162,14 @@ class HomeScreen extends StatelessWidget {
                           status: 'Pending',
                           isReady: false,
                         ),
+                        const SizedBox(height: 16),
+                        _buildStatusRow(
+                          context,
+                          icon: Icons.cloud_download,
+                          label: 'Background Service',
+                          status: 'Active',
+                          isReady: true,
+                        ),
                       ],
                     ),
                   ),
@@ -155,6 +180,28 @@ class HomeScreen extends StatelessWidget {
                 // Action Button
                 ElevatedButton.icon(
                   onPressed: () {
+                    // Navigate to translator screen
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const TranslatorScreen(),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.mic),
+                  label: const Text('Start Translating'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 32,
+                      vertical: 16,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 12),
+
+                OutlinedButton.icon(
+                  onPressed: () {
                     // Navigate to pack management screen
                     Navigator.push(
                       context,
@@ -164,8 +211,8 @@ class HomeScreen extends StatelessWidget {
                     );
                   },
                   icon: const Icon(Icons.download),
-                  label: const Text('Download Language Packs'),
-                  style: ElevatedButton.styleFrom(
+                  label: const Text('Manage Language Packs'),
+                  style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 32,
                       vertical: 16,
