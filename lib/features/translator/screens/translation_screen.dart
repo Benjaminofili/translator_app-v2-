@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/audio_recording_service.dart';
+import '../widget/voice_visualization_widget.dart';
 
 /// 🎤 Translator Screen - MVP
 ///
@@ -15,7 +17,7 @@ class TranslatorScreen extends StatefulWidget {
 }
 
 class _TranslatorScreenState extends State<TranslatorScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   // ═══════════════════════════════════════════════════════════════
   // STATE
   // ═══════════════════════════════════════════════════════════════
@@ -31,6 +33,9 @@ class _TranslatorScreenState extends State<TranslatorScreen>
   String _recordedText = '';
   String _translatedText = '';
   String? _errorMessage;
+
+  double _currentVolume = 0.0;
+  Timer? _volumeTimer;
 
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
@@ -55,7 +60,6 @@ class _TranslatorScreenState extends State<TranslatorScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1000),
     );
-
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
@@ -81,6 +85,7 @@ class _TranslatorScreenState extends State<TranslatorScreen>
   @override
   void dispose() {
     _pulseController.dispose();
+    _volumeTimer?.cancel(); // <-- Cancel volume timer
     _audioService.dispose();
     super.dispose();
   }
@@ -104,6 +109,19 @@ class _TranslatorScreenState extends State<TranslatorScreen>
     });
   }
 
+  void _updateVolume() async {
+    if (!_isRecording || !mounted) return;
+    try {
+      final amplitude = await _audioService.getAmplitude();
+      setState(() {
+        _currentVolume = amplitude;
+      });
+    } catch (e) {
+      // Handle error fetching amplitude if necessary
+      debugPrint("Error fetching amplitude: $e");
+    }
+  }
+
   Future<void> _startRecording() async {
     setState(() {
       _isRecording = true;
@@ -114,6 +132,11 @@ class _TranslatorScreenState extends State<TranslatorScreen>
 
     _pulseController.repeat(reverse: true);
 
+    // --- ADD VOLUME TIMER ---
+    _volumeTimer?.cancel(); // Cancel any existing timer
+    _volumeTimer = Timer.periodic(const Duration(milliseconds: 100), (_) => _updateVolume());
+    // --- END ADD VOLUME TIMER ---
+
     final result = await _audioService.startRecording();
 
     if (!result.success) {
@@ -123,6 +146,9 @@ class _TranslatorScreenState extends State<TranslatorScreen>
       });
       _pulseController.stop();
       _pulseController.reset();
+
+      _volumeTimer?.cancel(); // <-- Stop timer on error
+      setState(() => _currentVolume = 0.0); // Reset volume
 
       // Show error message
       if (mounted) {
@@ -140,6 +166,9 @@ class _TranslatorScreenState extends State<TranslatorScreen>
   }
 
   Future<void> _stopRecording() async {
+    _volumeTimer?.cancel();
+    _volumeTimer = null;
+    setState(() => _currentVolume = 0.0);
     setState(() {
       _isRecording = false;
     });
@@ -564,51 +593,62 @@ class _TranslatorScreenState extends State<TranslatorScreen>
   }
 
   Widget _buildRecordingButton(BuildContext context) {
-    return GestureDetector(
-      onLongPressStart: (_) => _startRecording(),
-      onLongPressEnd: (_) => _stopRecording(),
-      child: AnimatedBuilder(
-        animation: _pulseAnimation,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: _isRecording ? _pulseAnimation.value : 1.0,
-            child: Container(
-              width: 140,
-              height: 140,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: _isRecording
-                      ? [
-                    Colors.red.shade400,
-                    Colors.red.shade700,
-                  ]
-                      : [
-                    AppColors.electricPurple,
-                    AppColors.deepElectricPurple,
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: (_isRecording
-                        ? Colors.red
-                        : AppColors.electricPurple)
-                        .withValues(alpha: 0.5),
-                    blurRadius: _isRecording ? 30 : 20,
-                    spreadRadius: _isRecording ? 5 : 0,
+    const double buttonSize = 140; // Define button size
+    const double visualizationSize = buttonSize * 2.5; // Make visualization larger
+
+    return SizedBox(
+      width: visualizationSize,
+      height: visualizationSize,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // 1. Voice Visualization (drawn behind)
+          VoiceVisualizationWidget(
+            isRecording: _isRecording,
+            volume: _currentVolume,
+            languageCode: _sourceLanguage,
+          ),
+
+          // 2. Recording Button (drawn on top)
+          GestureDetector(
+            onLongPressStart: (_) => _startRecording(),
+            onLongPressEnd: (_) => _stopRecording(),
+            child: AnimatedBuilder(
+              animation: _pulseAnimation,
+              builder: (context, child) {
+                return Transform.scale(
+                  scale: _isRecording ? _pulseAnimation.value : 1.0,
+                  child: Container(
+                    width: buttonSize, // Use defined size
+                    height: buttonSize, // Use defined size
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: _isRecording
+                            ? [ Colors.red.shade400, Colors.red.shade700 ]
+                            : [ AppColors.electricPurple, AppColors.deepElectricPurple ],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_isRecording ? Colors.red : AppColors.electricPurple).withOpacity(0.5),
+                          blurRadius: _isRecording ? 30 : 20,
+                          spreadRadius: _isRecording ? 5 : 0,
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      _isRecording ? Icons.mic : Icons.mic_none,
+                      size: buttonSize * 0.43, // Keep relative icon size
+                      color: Colors.white,
+                    ),
                   ),
-                ],
-              ),
-              child: Icon(
-                _isRecording ? Icons.mic : Icons.mic_none,
-                size: 60,
-                color: Colors.white,
-              ),
+                );
+              },
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
