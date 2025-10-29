@@ -593,29 +593,41 @@ class _TranslatorScreenState extends State<TranslatorScreen>
   }
 
   Widget _buildRecordingButton(BuildContext context) {
-    const double buttonSize = 140; // Define button size
-    const double visualizationSize = buttonSize * 2.5; // Make visualization larger
+    const double buttonSize = 140;
+    const double visualizationSize = buttonSize * 2.5; // Still needed for the Positioned widget
 
+    // This SizedBox now only reserves space for the button in the main Column layout
     return SizedBox(
-      width: visualizationSize,
-      height: visualizationSize,
+      width: buttonSize,
+      height: buttonSize,
       child: Stack(
         alignment: Alignment.center,
+        clipBehavior: Clip.none, // Allow the visualization to paint outside the SizedBox
         children: [
-          // 1. Voice Visualization (drawn behind)
-          VoiceVisualizationWidget(
-            isRecording: _isRecording,
-            volume: _currentVolume,
-            languageCode: _sourceLanguage,
+          // 1. Position the visualization container centered relative to the SizedBox
+          // The Positioned widget itself doesn't affect the parent SizedBox's layout size.
+          Positioned(
+            // Calculate offsets to center the larger visualization area
+            // relative to the smaller SizedBox container.
+            left: (buttonSize - visualizationSize) / 2,
+            top: (buttonSize - visualizationSize) / 2,
+            width: visualizationSize, // The visualization needs its own defined size
+            height: visualizationSize,
+            child: VoiceVisualizationWidget(
+              isRecording: _isRecording,
+              volume: _currentVolume,
+              languageCode: _sourceLanguage,
+            ),
           ),
 
-          // 2. Recording Button (drawn on top)
+          // 2. Recording Button (drawn on top, fits within SizedBox)
           GestureDetector(
             onLongPressStart: (_) => _startRecording(),
             onLongPressEnd: (_) => _stopRecording(),
             child: AnimatedBuilder(
               animation: _pulseAnimation,
               builder: (context, child) {
+                // This Container defines the actual button's appearance and size
                 return Transform.scale(
                   scale: _isRecording ? _pulseAnimation.value : 1.0,
                   child: Container(
