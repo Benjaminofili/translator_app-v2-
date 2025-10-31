@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:prototype_ai_core/core/transitions/transition_manager.dart';
 import 'package:prototype_ai_core/services/notification_service.dart';
-import 'package:prototype_ai_core/services/background_service.dart'; // Added import
+import 'package:prototype_ai_core/services/background_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
 import 'core/utils/logger_utils.dart';
 import 'services/model_service.dart';
-import 'services/pack_downloader.dart'; // Added import
+import 'services/pack_downloader.dart';
 import 'features/language_packs/screens/pack_management_screen.dart';
 import 'package:prototype_ai_core/features/translator/screens/translation_screen.dart';
+import 'package:prototype_ai_core/features/home/screens/home_screen.dart';
+// Import the new liquid transitions
+import 'core/transitions/liquid_page_transitions.dart';
 
 void main() async {
   // Ensure Flutter binding is initialized
@@ -84,7 +88,9 @@ class VoiceTranslatorApp extends StatelessWidget {
       themeMode: ThemeMode.dark,
 
       // Home screen (placeholder for now)
-      home: const HomeScreen(),
+      home:
+      HomePage(),
+      // const HomeScreen(),
     );
   }
 }
@@ -180,12 +186,8 @@ class HomeScreen extends StatelessWidget {
                 // Action Button
                 ElevatedButton.icon(
                   onPressed: () {
-                    // Navigate to translator screen
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const TranslatorScreen(),
-                      ),
+                    Navigator.of(context).push(
+                      TransitionManager.fadeScale(const TranslatorScreen()),
                     );
                   },
                   icon: const Icon(Icons.mic),
@@ -202,13 +204,8 @@ class HomeScreen extends StatelessWidget {
 
                 OutlinedButton.icon(
                   onPressed: () {
-                    // Navigate to pack management screen
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const PackManagementScreen(),
-                      ),
-                    );
+                    // Navigate using the new extension method
+                    context.pushLiquidSlide(const PackManagementScreen());
                   },
                   icon: const Icon(Icons.download),
                   label: const Text('Manage Language Packs'),
@@ -248,7 +245,7 @@ class HomeScreen extends StatelessWidget {
           icon,
           color: isReady
               ? Theme.of(context).colorScheme.secondary
-              : Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5),
+              : Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
           size: 24,
         ),
         const SizedBox(width: 16),
@@ -274,7 +271,7 @@ class HomeScreen extends StatelessWidget {
             shape: BoxShape.circle,
             color: isReady
                 ? Theme.of(context).colorScheme.secondary
-                : Theme.of(context).colorScheme.error.withValues(alpha: 0.5),
+                : Theme.of(context).colorScheme.error.withOpacity(0.5),
           ),
         ),
       ],
