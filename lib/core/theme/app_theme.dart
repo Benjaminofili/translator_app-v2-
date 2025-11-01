@@ -3,48 +3,56 @@ import 'package:flutter/services.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_constants.dart';
 
-/// 🎨 App Theme Configuration
+/// 🎨 Refined App Theme
 ///
-/// Defines the complete visual theme for the app using the Liquid AI color palette
+/// Philosophy: Minimal chrome, maximum efficiency
+/// Accent color reserved for PRIMARY ACTIONS ONLY
 class AppTheme {
   AppTheme._();
 
-  // ═══════════════════════════════════════════════════════════════
-  // DARK THEME (Primary)
-  // ═══════════════════════════════════════════════════════════════
-
   static ThemeData get darkTheme {
     return ThemeData(
-      // Core theme settings
       useMaterial3: true,
       brightness: Brightness.dark,
 
-      // Color scheme
-      colorScheme: const ColorScheme.dark(
-        primary: AppColors.electricPurple,
-        secondary: AppColors.aquaAccent,
-        surface: AppColors.midnightBlue,
+      // ═══════════════════════════════════════════════════════════
+      // COLOR SCHEME - Minimal, functional
+      // ═══════════════════════════════════════════════════════════
+      colorScheme: ColorScheme.dark(
+        // Primary accent - ONLY for main CTAs
+        primary: AppColors.accent,
+        secondary: AppColors.accentLight,
+
+        // Surfaces - Only 2 levels
+        surface: AppColors.surface,
+        surfaceContainerHighest: AppColors.background,
+
+        // Semantic colors
         error: AppColors.error,
+
+        // On-colors (text on surfaces)
         onPrimary: Colors.white,
         onSecondary: Colors.white,
         onSurface: AppColors.textPrimary,
         onError: Colors.white,
       ),
 
-      // Scaffold (using colorScheme.surface instead of deprecated background)
-      scaffoldBackgroundColor: AppColors.deepOcean,
+      scaffoldBackgroundColor: AppColors.background,
 
-      // App Bar
+      // ═══════════════════════════════════════════════════════════
+      // APP BAR - Minimal, borderless
+      // ═══════════════════════════════════════════════════════════
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.deepOcean,
+        backgroundColor: AppColors.background,
         elevation: 0,
-        centerTitle: true,
+        scrolledUnderElevation: 0, // No shadow on scroll
+        centerTitle: false, // Left-aligned like Google
         systemOverlayStyle: SystemUiOverlayStyle.light,
         titleTextStyle: TextStyle(
           color: AppColors.textPrimary,
-          fontSize: 20,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
+          fontSize: 22,
+          fontWeight: FontWeight.w500, // Medium weight, not bold
+          letterSpacing: 0,
         ),
         iconTheme: IconThemeData(
           color: AppColors.textPrimary,
@@ -52,306 +60,331 @@ class AppTheme {
         ),
       ),
 
-      // Cards
+      // ═══════════════════════════════════════════════════════════
+      // CARDS - Minimal elevation, no glow
+      // ═══════════════════════════════════════════════════════════
       cardTheme: CardThemeData(
-        color: AppColors.surfaceCard,
-        elevation: 4,
-        shadowColor: Colors.black.withValues(alpha: 0.3),
+        color: AppColors.surface,
+        elevation: 0, // Flat design
+        shadowColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
         ),
-        margin: const EdgeInsets.all(AppConstants.paddingSmall),
+        margin: EdgeInsets.zero, // Control margins explicitly per use
       ),
 
-      // Elevated Button
+      // ═══════════════════════════════════════════════════════════
+      // BUTTONS - Accent ONLY for primary actions
+      // ═══════════════════════════════════════════════════════════
+
+      // Primary action button (Translate, Download)
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.electricPurple,
+          backgroundColor: AppColors.accent,
           foregroundColor: Colors.white,
-          elevation: 4,
-          shadowColor: AppColors.electricPurple.withValues(alpha: 0.5),
+          elevation: 0, // Flat
+          shadowColor: Colors.transparent,
+          disabledBackgroundColor: AppColors.accentDisabled,
+          disabledForegroundColor: AppColors.textDisabled,
           padding: const EdgeInsets.symmetric(
-            horizontal: AppConstants.paddingLarge,
-            vertical: AppConstants.paddingMedium,
+            horizontal: 24,
+            vertical: 16,
           ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
           ),
           textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.1,
           ),
         ),
       ),
 
-      // Text Button
+      // Secondary/tertiary actions (Clear, Edit, etc.)
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.electricPurple,
+          foregroundColor: AppColors.textSecondary,
+          disabledForegroundColor: AppColors.textDisabled,
           padding: const EdgeInsets.symmetric(
-            horizontal: AppConstants.paddingMedium,
-            vertical: AppConstants.paddingSmall,
+            horizontal: 12,
+            vertical: 8,
           ),
           textStyle: const TextStyle(
             fontSize: 14,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.3,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.1,
           ),
         ),
       ),
 
-      // Floating Action Button
+      // Icon buttons (mic, swap, play, copy)
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          foregroundColor: AppColors.textPrimary,
+          disabledForegroundColor: AppColors.textDisabled,
+          // No background color - icons float on surface
+        ),
+      ),
+
+      // FAB - Only if needed (Google rarely uses FABs)
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: AppColors.electricPurple,
+        backgroundColor: AppColors.accent,
         foregroundColor: Colors.white,
-        elevation: 6,
+        elevation: 4, // Slight elevation for FAB only
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusLarge),
         ),
       ),
 
-      // Input Decoration
+      // ═══════════════════════════════════════════════════════════
+      // INPUT FIELDS - Clean, minimal borders
+      // ═══════════════════════════════════════════════════════════
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surfaceCard,
+        fillColor: AppColors.surface,
+
+        // Default border - subtle
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(
+            color: AppColors.borderInactive,
+            width: 1,
+          ),
         ),
+
+        // Enabled border - same as default
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
-          borderSide: BorderSide.none,
+          borderSide: const BorderSide(
+            color: AppColors.borderInactive,
+            width: 1,
+          ),
         ),
+
+        // Focused border - accent color
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
           borderSide: const BorderSide(
-            color: AppColors.electricPurple,
+            color: AppColors.accent,
             width: 2,
           ),
         ),
+
+        // Error border
         errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
+          borderSide: const BorderSide(
+            color: AppColors.error,
+            width: 1,
+          ),
+        ),
+
+        focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
           borderSide: const BorderSide(
             color: AppColors.error,
             width: 2,
           ),
         ),
+
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: AppConstants.paddingMedium,
-          vertical: AppConstants.paddingMedium,
+          horizontal: 16,
+          vertical: 16,
         ),
+
         hintStyle: const TextStyle(
           color: AppColors.textTertiary,
-          fontSize: 14,
+          fontSize: 16,
+          fontWeight: FontWeight.w400,
         ),
+
         labelStyle: const TextStyle(
           color: AppColors.textSecondary,
           fontSize: 14,
+          fontWeight: FontWeight.w400,
         ),
       ),
 
-      // Progress Indicator
+      // ═══════════════════════════════════════════════════════════
+      // PROGRESS INDICATORS - Accent color only
+      // ═══════════════════════════════════════════════════════════
       progressIndicatorTheme: const ProgressIndicatorThemeData(
-        color: AppColors.electricPurple,
-        linearTrackColor: AppColors.shimmerBase,
-        circularTrackColor: AppColors.shimmerBase,
+        color: AppColors.accent,
+        linearTrackColor: AppColors.progressTrack,
+        circularTrackColor: AppColors.progressTrack,
       ),
 
-      // Slider
-      sliderTheme: SliderThemeData(
-        activeTrackColor: AppColors.electricPurple,
-        inactiveTrackColor: AppColors.shimmerBase,
-        thumbColor: AppColors.aquaAccent,
-        overlayColor: AppColors.aquaAccent.withValues(alpha: 0.2),
-        valueIndicatorColor: AppColors.electricPurple,
-        valueIndicatorTextStyle: const TextStyle(
-          color: Colors.white,
+      // ═══════════════════════════════════════════════════════════
+      // CHIPS - Low visual weight
+      // ═══════════════════════════════════════════════════════════
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.surface,
+        selectedColor: AppColors.accent.withOpacity(0.2),
+        disabledColor: AppColors.surface.withOpacity(0.5),
+        labelStyle: const TextStyle(
+          color: AppColors.textPrimary,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+        ),
+        secondaryLabelStyle: const TextStyle(
+          color: AppColors.textSecondary,
           fontSize: 12,
-          fontWeight: FontWeight.w600,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(
+            color: AppColors.borderInactive,
+            width: 1,
+          ),
         ),
       ),
 
-      // Switch
-      switchTheme: SwitchThemeData(
-        thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return AppColors.aquaAccent;
-          }
-          return AppColors.textTertiary;
-        }),
-        trackColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) {
-            return AppColors.electricPurple.withValues(alpha: 0.5);
-          }
-          return AppColors.shimmerBase;
-        }),
-      ),
-
-      // Divider
+      // ═══════════════════════════════════════════════════════════
+      // DIVIDERS - Subtle
+      // ═══════════════════════════════════════════════════════════
       dividerTheme: const DividerThemeData(
-        color: AppColors.shimmerBase,
+        color: AppColors.divider,
         thickness: 1,
         space: 1,
       ),
 
-      // Icon
+      // ═══════════════════════════════════════════════════════════
+      // ICONS - Primary text color by default
+      // ═══════════════════════════════════════════════════════════
       iconTheme: const IconThemeData(
         color: AppColors.textPrimary,
         size: 24,
       ),
 
-      // Text Theme
+      // ═══════════════════════════════════════════════════════════
+      // TEXT THEME - Clear hierarchy
+      // ═══════════════════════════════════════════════════════════
       textTheme: const TextTheme(
-        // Display styles (large, prominent text)
+        // Large titles (screen headers)
         displayLarge: TextStyle(
-          fontSize: 57,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
-          letterSpacing: -0.25,
-        ),
-        displayMedium: TextStyle(
-          fontSize: 45,
-          fontWeight: FontWeight.w700,
-          color: AppColors.textPrimary,
-          letterSpacing: 0,
-        ),
-        displaySmall: TextStyle(
-          fontSize: 36,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-          letterSpacing: 0,
-        ),
-
-        // Headline styles (section headers)
-        headlineLarge: TextStyle(
           fontSize: 32,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-          letterSpacing: 0,
-        ),
-        headlineMedium: TextStyle(
-          fontSize: 28,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-          letterSpacing: 0,
-        ),
-        headlineSmall: TextStyle(
-          fontSize: 24,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w400, // Regular weight
           color: AppColors.textPrimary,
           letterSpacing: 0,
         ),
 
-        // Title styles (card titles, dialog titles)
-        titleLarge: TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w600,
+        // Section headers
+        headlineMedium: TextStyle(
+          fontSize: 24,
+          fontWeight: FontWeight.w400,
           color: AppColors.textPrimary,
           letterSpacing: 0,
         ),
+
+        // Card titles, list titles
+        titleLarge: TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.w500,
+          color: AppColors.textPrimary,
+          letterSpacing: 0,
+        ),
+
+        // List item titles
         titleMedium: TextStyle(
           fontSize: 16,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
           color: AppColors.textPrimary,
           letterSpacing: 0.15,
         ),
+
+        // Small labels
         titleSmall: TextStyle(
           fontSize: 14,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
           color: AppColors.textPrimary,
           letterSpacing: 0.1,
         ),
 
-        // Body styles (main content)
+        // Body text - translated content
         bodyLarge: TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w400,
           color: AppColors.textPrimary,
           letterSpacing: 0.5,
+          height: 1.5, // Good line height for readability
         ),
+
+        // Secondary body text
         bodyMedium: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: AppColors.textSecondary,
           letterSpacing: 0.25,
+          height: 1.43,
         ),
+
+        // Tertiary text (timestamps, hints)
         bodySmall: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w400,
           color: AppColors.textTertiary,
           letterSpacing: 0.4,
+          height: 1.33,
         ),
 
-        // Label styles (buttons, chips)
+        // Button text
         labelLarge: TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
           color: AppColors.textPrimary,
           letterSpacing: 0.1,
         ),
+
+        // Chip text, small buttons
         labelMedium: TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
           color: AppColors.textSecondary,
           letterSpacing: 0.5,
         ),
-        labelSmall: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textTertiary,
-          letterSpacing: 0.5,
-        ),
       ),
     );
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // LIGHT THEME (Optional - for future use)
+  // HELPER METHODS - Removed heavy decorations
   // ═══════════════════════════════════════════════════════════════
 
-  static ThemeData get lightTheme {
-    // For now, return dark theme
-    // Can be implemented later if needed
-    return darkTheme;
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  // HELPER METHODS
-  // ═══════════════════════════════════════════════════════════════
-
-  /// Get gradient decoration for backgrounds
-  static BoxDecoration getGradientBackground() {
-    return const BoxDecoration(
-      gradient: LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: AppColors.gradientBackground,
-      ),
-    );
-  }
-
-  /// Get card decoration with subtle glow
-  static BoxDecoration getCardDecoration({Color? glowColor}) {
+  /// Simple card decoration (no glow)
+  static BoxDecoration getCardDecoration() {
     return BoxDecoration(
-      color: AppColors.surfaceCard,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
-      boxShadow: [
-        BoxShadow(
-          color: (glowColor ?? AppColors.electricPurple).withValues(alpha: 0.1),
-          blurRadius: 20,
-          offset: const Offset(0, 4),
-        ),
-      ],
+      border: Border.all(
+        color: AppColors.divider,
+        width: 1,
+      ),
     );
   }
 
-  /// Get shimmer gradient for loading states
+  /// Language chip decoration
+  static BoxDecoration getLanguageChipDecoration(
+      String languageCode, {
+        bool isSelected = false,
+      }) {
+    return BoxDecoration(
+      color: AppColors.getLanguageChipColor(languageCode, isSelected: isSelected),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(
+        color: AppColors.getLanguageChipBorder(languageCode, isSelected: isSelected),
+        width: 1,
+      ),
+    );
+  }
+
+  /// Shimmer gradient (unchanged - needed for loading)
   static LinearGradient getShimmerGradient() {
     return LinearGradient(
       begin: const Alignment(-1.0, 0.0),
       end: const Alignment(1.0, 0.0),
-      colors: AppColors.shimmerColors,
+      colors: AppColors.shimmerGradient,
       stops: const [0.0, 0.5, 1.0],
     );
   }

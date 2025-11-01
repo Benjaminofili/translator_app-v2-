@@ -3,9 +3,9 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../services/pack_downloader.dart';
 
-/// 📊 Download Progress Indicator
-/// 
-/// Beautiful animated progress bar with stats
+/// 📊 Download Progress Indicator - Minimal, functional
+///
+/// Simple progress bar with essential info only
 class DownloadProgressIndicator extends StatelessWidget {
   final DownloadProgress progress;
 
@@ -19,17 +19,18 @@ class DownloadProgressIndicator extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Progress bar
+        // Progress bar (minimal, 4px height)
         ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(4),
           child: TweenAnimationBuilder<double>(
             duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
             tween: Tween(begin: 0.0, end: progress.progress),
             builder: (context, value, child) {
               return LinearProgressIndicator(
                 value: value,
-                minHeight: 8,
-                backgroundColor: AppColors.shimmerBase,
+                minHeight: 4,
+                backgroundColor: AppColors.progressTrack,
                 valueColor: AlwaysStoppedAnimation(
                   _getProgressColor(progress.status),
                 ),
@@ -38,64 +39,41 @@ class DownloadProgressIndicator extends StatelessWidget {
           ),
         ),
 
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
 
-        // Stats row
+        // Single line of essential info
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             // Progress percentage
             Text(
               '${progress.progressPercent}%',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                color: _getProgressColor(progress.status),
-                fontWeight: FontWeight.w600,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w500,
               ),
             ),
 
-            // Download speed and ETA
-            if (progress.status == DownloadStatus.downloading &&
-                progress.bytesPerSecond != null) ...[
-              Row(
-                children: [
-                  Icon(
-                    Icons.speed,
-                    size: 14,
-                    color: AppColors.textSecondary,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    FormatUtils.formatSpeed(progress.bytesPerSecond!),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+            const SizedBox(width: 12),
 
-                  if (progress.estimatedTimeRemaining != null) ...[
-                    const SizedBox(width: 12),
-                    Icon(
-                      Icons.access_time,
-                      size: 14,
-                      color: AppColors.textSecondary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      FormatUtils.formatTimeRemaining(
-                        progress.estimatedTimeRemaining!,
-                      ),
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
-                ],
+            // Downloaded / Total
+            Expanded(
+              child: Text(
+                '${FormatUtils.formatBytes(progress.downloadedBytes)} / ${FormatUtils.formatBytes(progress.totalBytes)}',
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-            ],
+            ),
+
+            // Speed (only when actively downloading)
+            if (progress.status == DownloadStatus.downloading &&
+                progress.bytesPerSecond != null &&
+                progress.bytesPerSecond! > 0)
+              Text(
+                FormatUtils.formatSpeed(progress.bytesPerSecond!),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textTertiary,
+                ),
+              ),
           ],
-        ),
-
-        const SizedBox(height: 8),
-
-        // Downloaded size
-        Text(
-          '${FormatUtils.formatBytes(progress.downloadedBytes)} / ${FormatUtils.formatBytes(progress.totalBytes)}',
-          style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
     );
@@ -105,11 +83,11 @@ class DownloadProgressIndicator extends StatelessWidget {
   Color _getProgressColor(DownloadStatus status) {
     switch (status) {
       case DownloadStatus.downloading:
-        return AppColors.aquaAccent;
+        return AppColors.accent;
       case DownloadStatus.paused:
         return AppColors.warning;
       case DownloadStatus.extracting:
-        return AppColors.electricPurple;
+        return AppColors.accent;
       case DownloadStatus.verifying:
         return AppColors.success;
       case DownloadStatus.completed:

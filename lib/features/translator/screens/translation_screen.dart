@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../services/audio_recording_service.dart';
 import '../widget/language_selector_widget.dart';
@@ -32,12 +31,10 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
     'fr': 'French (Français)',
     'zh': 'Chinese (中文)',
     'ja': 'Japanese (日本語)',
-
   };
 
   @override
   void dispose() {
-    _audioService.dispose();
     super.dispose();
   }
 
@@ -101,99 +98,107 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: AppTheme.getGradientBackground(),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildHeader(context),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Language selector at top
+            LanguageSelectorWidget(
+              sourceLanguage: _sourceLanguage,
+              targetLanguage: _targetLanguage,
+              availableLanguages: _languages,
+              onSourceChanged: (val) => setState(() => _sourceLanguage = val),
+              onTargetChanged: (val) => setState(() => _targetLanguage = val),
+              onSwap: _swapLanguages,
+            ),
 
-              // Language selector
-              LanguageSelectorWidget(
-                sourceLanguage: _sourceLanguage,
-                targetLanguage: _targetLanguage,
-                availableLanguages: _languages,
-                onSourceChanged: (val) => setState(() => _sourceLanguage = val),
-                onTargetChanged: (val) => setState(() => _targetLanguage = val),
-                onSwap: _swapLanguages,
+            // Translation area
+            Expanded(child: _buildTranslationArea(context)),
+
+            // Waveform (minimal height)
+            SizedBox(
+              height: 120,
+              child: TweenedWaveform(isListening: _isRecording),
+            ),
+
+            // Recording button
+            Padding(
+              padding: const EdgeInsets.only(bottom: 32, top: 16),
+              child: RecordingButtonWidget(
+                isRecording: _isRecording,
+                onStartRecording: _startRecording,
+                onStopRecording: _stopRecording,
               ),
-
-              // Translation area
-              Expanded(child: _buildTranslationArea(context)),
-
-              // Waveform
-              SizedBox(
-                height: 150,
-                child: TweenedWaveform(isListening: _isRecording),
-              ),
-
-              // Recording button
-              Padding(
-                padding: const EdgeInsets.only(bottom: 24),
-                child: RecordingButtonWidget(
-                  isRecording: _isRecording,
-                  onStartRecording: _startRecording,
-                  onStopRecording: _stopRecording,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back),
-          ),
-          Text('Voice Translator',
-              style: Theme.of(context).textTheme.headlineSmall),
-          Row(
-            children: [
-              IconButton(
-                onPressed: _clearResults,
-                icon: const Icon(Icons.clear_all),
-              ),
-              IconButton(
-                onPressed: () {
-                  // TODO: Navigate to history
-                },
-                icon: const Icon(Icons.history),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }
 
   Widget _buildTranslationArea(BuildContext context) {
     if (_isProcessing) {
-      return const Center(child: CircularProgressIndicator());
+      return Center(
+        child: CircularProgressIndicator(
+          color: AppColors.accent,
+        ),
+      );
     }
 
     if (_errorMessage != null) {
-      return Center(child: Text(_errorMessage!));
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 48,
+                color: AppColors.error,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _errorMessage!,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: AppColors.error,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              TextButton(
+                onPressed: _clearResults,
+                child: const Text('Dismiss'),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     if (_recordedText.isEmpty && _translatedText.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.mic_none, size: 80, color: Colors.white30),
-            SizedBox(height: 16),
-            Text('Hold the button to speak',
-                style: TextStyle(color: Colors.white70)),
-            Text('Release to translate',
-                style: TextStyle(color: Colors.white54)),
+          children: [
+            Icon(
+              Icons.mic_none,
+              size: 64,
+              color: AppColors.textTertiary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Tap to speak',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Release to translate',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppColors.textTertiary,
+              ),
+            ),
           ],
         ),
       );
@@ -210,7 +215,7 @@ class _TranslatorScreenState extends State<TranslatorScreen> {
             icon: Icons.mic,
           ),
         if (_translatedText.isNotEmpty) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           TranslationResultCard(
             title: 'Translation',
             text: _translatedText,

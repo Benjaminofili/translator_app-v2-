@@ -1,10 +1,12 @@
+// lib/features/home/screens/home_screen.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:prototype_ai_core/features/translator/screens/stt_screen.dart';
+import 'package:prototype_ai_core/features/translator/widget/translation_result_card.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_colors.dart';
-import 'package:prototype_ai_core/features/translator/screens/translation_screen.dart';
+import '../../../services/model_service.dart';
 import '../../translator/widget/language_selector_widget.dart';
 
 class HomePage extends StatefulWidget {
@@ -16,111 +18,168 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final TextEditingController _textController = TextEditingController();
+  final ModelService _modelService = ModelService();
+
   bool _isTranslating = false;
   bool _isFocused = false;
-  bool _buttonPressed = false;
+  String _sourceLanguage = 'en';
+  String _targetLanguage = 'es';
+  String _translatedText = '';
+
+  Timer? _debounce;
+  static const Duration _debounceDuration = Duration(milliseconds: 500);
 
   @override
   void dispose() {
     _textController.dispose();
+    _debounce?.cancel();
     super.dispose();
   }
 
-  void _onTranslate() async {
-    if (_textController.text.isEmpty) return;
-    setState(() => _isTranslating = true);
+  /// Called on every keystroke to manage translation timing
+  void _onTextChanged(String text) {
+    // Cancel any existing timer
+    _debounce?.cancel();
 
-    await Future.delayed(const Duration(milliseconds: AppConstants.mediumDuration));
+    if (text.isEmpty) {
+      setState(() {
+        _translatedText = '';
+        _isTranslating = false;
+      });
+      return;
+    }
 
-    setState(() => _isTranslating = false);
+    // Show loading indicator immediately
+    setState(() {
+      _isTranslating = true;
+      _translatedText = '';
+    });
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const TranslatorScreen()),
-    );
+    // Start a new timer
+    _debounce = Timer(_debounceDuration, () {
+      _triggerTranslation(text);
+    });
+  }
+
+  /// Triggers the actual (simulated) translation
+  Future<void> _triggerTranslation(String text) async {
+    // --- Simulate Translation ---
+    // In a real app, you'd call:
+    // final result = await _modelService.translate(
+    //   text: text,
+    //   sourceLanguage: _sourceLanguage,
+    //   targetLanguage: _targetLanguage,
+    // );
+
+    await Future.delayed(const Duration(milliseconds: 750));
+
+    // Check if text hasn't changed again while we were "translating"
+    if (text != _textController.text) {
+      return; // Stale request, user is typing again
+    }
+
+    setState(() {
+      // if (result.success) {
+      //   _translatedText = result.translated ?? '';
+      // } else {
+      //   _translatedText = 'Error: ${result.error}';
+      // }
+
+      // Simulated result:
+      _translatedText = "This is the translated text for '$text'";
+      _isTranslating = false;
+    });
+  }
+
+  void _onSwapLanguages() {
+    setState(() {
+      final temp = _sourceLanguage;
+      _sourceLanguage = _targetLanguage;
+      _targetLanguage = temp;
+
+      // Also swap text if there is a translation
+      final tempText = _textController.text;
+      _textController.text = _translatedText;
+      _translatedText = tempText;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final availableLanguages = AppConstants.languageNames;
 
-    return Scaffold(
-      // use AppTheme.darkTheme scaffoldBackgroundColor via theme; explicit keeps parity with your design system
-      backgroundColor: AppColors.deepOcean,
-      appBar: AppBar(
-        title: const Text(AppConstants.appName),
-        backgroundColor: AppColors.deepOcean,
-        elevation: 0,
-        centerTitle: true,
-      ),
-      body: Column(
+    return SingleChildScrollView(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const SizedBox(height: AppConstants.paddingMedium),
 
-          // Language Selector card (uses AppTheme.getCardDecoration)
+          // Language Selector
           Container(
             margin: const EdgeInsets.symmetric(horizontal: AppConstants.paddingMedium),
-            decoration: AppTheme.getCardDecoration(glowColor: AppColors.aquaAccent),
+            decoration: AppTheme.getCardDecoration(),
             child: Padding(
               padding: const EdgeInsets.all(AppConstants.paddingMedium),
               child: LanguageSelectorWidget(
-                sourceLanguage: 'en',
-                targetLanguage: 'es',
+                sourceLanguage: _sourceLanguage,
+                targetLanguage: _targetLanguage,
                 availableLanguages: availableLanguages,
-                onSourceChanged: (code) {},
-                onTargetChanged: (code) {},
-                onSwap: () {},
+                onSourceChanged: (code) => setState(() => _sourceLanguage = code),
+                onTargetChanged: (code) => setState(() => _targetLanguage = code),
+                onSwap: _onSwapLanguages,
               ),
             ),
           ),
 
           const SizedBox(height: AppConstants.paddingLarge),
 
-          // Input Card using theme tokens
+          // Input Card - Minimal, clean design
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingMedium),
             child: Focus(
               onFocusChange: (hasFocus) => setState(() => _isFocused = hasFocus),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: AppConstants.microDuration),
+                duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceCard,
+                  color: AppColors.surface,
                   borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
                   border: Border.all(
-                    color: _isFocused ? AppColors.electricPurple : AppColors.surfaceCard,
+                    color: _isFocused ? AppColors.accent : AppColors.borderInactive,
                     width: _isFocused ? 2 : 1,
                   ),
-                  boxShadow: _isFocused
-                      ? [
-                    BoxShadow(
-                      color: AppColors.electricPurple.withValues(alpha: 0.1),
-                      blurRadius: 20,
-                      offset: const Offset(0, 4),
-                    ),
-                  ]
-                      : [],
                 ),
                 child: TextField(
                   controller: _textController,
-                  maxLines: 4,
-                  style: const TextStyle(color: AppColors.textPrimary),
-                  cursorColor: AppColors.electricPurple,
-                  onChanged: (_) => setState(() {}),
+                  maxLines: 5,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    height: 1.5,
+                  ),
+                  cursorColor: AppColors.accent,
+                  onChanged: _onTextChanged,
                   decoration: InputDecoration(
-                    // Use your InputDecorationTheme from AppTheme; override only where necessary
-                    hintText: "Type text to translate...",
-                    hintStyle: const TextStyle(color: AppColors.textTertiary, fontSize: 14),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: AppConstants.paddingMedium,
-                      vertical: AppConstants.paddingMedium,
+                    hintText: "Enter text to translate...",
+                    hintStyle: const TextStyle(
+                      color: AppColors.textTertiary,
+                      fontSize: 16,
                     ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.all(AppConstants.paddingMedium),
                     suffixIcon: _textController.text.isNotEmpty
                         ? IconButton(
-                      icon: const Icon(Icons.clear, color: AppColors.textSecondary),
+                      icon: const Icon(
+                        Icons.clear,
+                        color: AppColors.textSecondary,
+                        size: 20,
+                      ),
                       onPressed: () {
-                        setState(() => _textController.clear());
+                        setState(() {
+                          _textController.clear();
+                          _translatedText = '';
+                          _isTranslating = false;
+                          _debounce?.cancel();
+                        });
                       },
                     )
                         : null,
@@ -132,128 +191,44 @@ class _HomePageState extends State<HomePage> {
 
           const SizedBox(height: AppConstants.paddingLarge),
 
-          // Gradient Translate Button using gradientPrimary
+          // Result Card - Shows loading or translation
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingMedium),
-            child: AnimatedScale(
-              scale: _buttonPressed ? 0.97 : 1.0,
-              duration: const Duration(milliseconds: AppConstants.microDuration),
-              child: GestureDetector(
-                onTapDown: (_) {
-                  HapticFeedback.lightImpact();
-                  setState(() => _buttonPressed = true);
-                },
-                onTapUp: (_) => setState(() => _buttonPressed = false),
-                onTapCancel: () => setState(() => _buttonPressed = false),
-                child: Opacity(
-                  opacity: _textController.text.isEmpty ? 0.6 : 1.0,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(colors: AppColors.gradientPrimary),
-                      borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.electricPurple.withValues(alpha: 0.3),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: ElevatedButton(
-                      onPressed: _textController.text.isEmpty || _isTranslating ? null : _onTranslate,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        padding: const EdgeInsets.symmetric(vertical: AppConstants.paddingMedium),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      child: _isTranslating
-                          ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                          : const Text("Translate"),
-                    ),
-                  ),
-                ),
-              ),
+            padding: const EdgeInsets.fromLTRB(
+              AppConstants.paddingMedium,
+              0,
+              AppConstants.paddingMedium,
+              AppConstants.paddingMedium,
             ),
-          ),
-
-          const SizedBox(height: AppConstants.paddingLarge),
-
-          // Voice Translation Button (gradient circular, themed)
-          Center(
-            child: Column(
-              children: [
-                InkWell(
-                  borderRadius: BorderRadius.circular(AppConstants.micButtonSize / 2),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const SttScreen()),
-                    );
-                  },
-                  child: Ink(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(colors: AppColors.gradientPrimary),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.electricPurple.withValues(alpha: 0.3),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: const Padding(
-                      padding: EdgeInsets.all(AppConstants.paddingMedium),
-                      child: Icon(Icons.mic, color: Colors.white, size: 32),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppConstants.paddingSmall),
-                const Text(
-                  "Voice Translation",
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: AppConstants.paddingLarge),
-
-          // Empty State / Recent Translations Placeholder (themed)
-          Expanded(
-            child: Center(
+            child: _isTranslating
+                ? Center(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.history_outlined, size: 48, color: AppColors.textTertiary),
-                  SizedBox(height: AppConstants.paddingMedium),
-                  Text(
-                    "No recent translations yet",
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
+                children: [
+                  const CircularProgressIndicator(
+                    color: AppColors.accent,
                   ),
-                  SizedBox(height: AppConstants.paddingSmall),
+                  const SizedBox(height: AppConstants.paddingSmall),
                   Text(
-                    "Your translation history will appear here",
-                    style: TextStyle(color: AppColors.textTertiary, fontSize: 14),
+                    'Translating...',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               ),
-            ),
+            )
+                : _translatedText.isNotEmpty
+                ? TranslationResultCard(
+              title: 'Translation',
+              text: _translatedText,
+              language: availableLanguages[_targetLanguage] ?? _targetLanguage,
+              icon: Icons.translate,
+              isPrimary: true,
+              onCopy: () {},
+              onPlay: () {},
+              onShare: () {},
+            )
+                : const SizedBox.shrink(),
           ),
         ],
       ),

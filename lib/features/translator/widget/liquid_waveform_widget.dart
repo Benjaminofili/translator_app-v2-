@@ -1,11 +1,8 @@
-// lib/features/translator/widget/liquid_waveform_widget.dart
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart'; // <-- Import your app colors
+import '../../../core/constants/app_colors.dart';
 
-// -----------------------------
-// TweenedWaveform (manages animation + lifecycle)
-// -----------------------------
+/// Tweened Waveform - Minimal audio visualization
 class TweenedWaveform extends StatefulWidget {
   final bool isListening;
   const TweenedWaveform({super.key, required this.isListening});
@@ -39,7 +36,6 @@ class _TweenedWaveformState extends State<TweenedWaveform>
       duration: _WaveParams.stateDuration,
     );
 
-    // Initialize to the CURRENT state explicitly so we don't jump on first build
     _centerYFactor = AlwaysStoppedAnimation<double>(
       widget.isListening ? _WaveParams.activeCenterY : _WaveParams.idleCenterY,
     );
@@ -49,14 +45,9 @@ class _TweenedWaveformState extends State<TweenedWaveform>
     _stateController.value = 1.0;
   }
 
-  /// Configure tweens given the OLD state (fromListeningState).
-  /// We animate FROM the old state positions TO the new state (widget.isListening).
   void _configureTweens({required bool fromListeningState}) {
     final double beginCenter = fromListeningState ? _WaveParams.activeCenterY : _WaveParams.idleCenterY;
     final double endCenter = fromListeningState ? _WaveParams.idleCenterY : _WaveParams.activeCenterY;
-
-    // Amplitude scale: 1.00 = active (full), 0.83 = idle (reduced).
-    // Begin should reflect the OLD state; end should reflect the NEW state.
     final double beginAmp = fromListeningState ? 1.00 : 0.83;
     final double endAmp = fromListeningState ? 0.83 : 1.00;
 
@@ -71,7 +62,6 @@ class _TweenedWaveformState extends State<TweenedWaveform>
   void didUpdateWidget(covariant TweenedWaveform oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isListening != _previousListeningState) {
-      // Transition from previous state -> new state
       _configureTweens(fromListeningState: _previousListeningState);
       _stateController.forward(from: 0.0);
       _previousListeningState = widget.isListening;
@@ -113,9 +103,7 @@ class _TweenedWaveformState extends State<TweenedWaveform>
   }
 }
 
-// -----------------------------
-// Visual parameters centralization
-// -----------------------------
+/// Visual parameters
 class _WaveParams {
   static const double activeCenterY = 0.50;
   static const double idleCenterY = 0.65;
@@ -128,30 +116,28 @@ class _WaveParams {
   static const double freq2 = 2.3;
   static const double freq3 = 1.6;
 
-  static const double stroke1 = 4.5;
-  static const double stroke2 = 3.5;
-  static const double stroke3 = 3.0;
+  static const double stroke1 = 3.0;
+  static const double stroke2 = 2.5;
+  static const double stroke3 = 2.0;
 
-  static const double outerGlowBlur = 4.0;
-  static const double innerGlowBlur = 2.0;
+  static const double outerGlowBlur = 3.0;
+  static const double innerGlowBlur = 1.5;
 
-  static const double glow1 = 0.60;
-  static const double glow2 = 0.55;
-  static const double glow3Active = 0.50;
-  static const double glow3Idle = 0.55;
+  static const double glow1 = 0.45;
+  static const double glow2 = 0.40;
+  static const double glow3Active = 0.35;
+  static const double glow3Idle = 0.40;
 
-  static const double opacity1 = 0.95;
-  static const double opacity2 = 0.85;
-  static const double opacity3Active = 0.55;
-  static const double opacity3Idle = 0.60;
+  static const double opacity1 = 0.90;
+  static const double opacity2 = 0.80;
+  static const double opacity3Active = 0.50;
+  static const double opacity3Idle = 0.55;
 
   static const Duration stateDuration = Duration(milliseconds: 450);
   static const Duration phaseDuration = Duration(seconds: 2);
 }
 
-// -----------------------------
-// Painter (tween-aware, final tuned visual)
-// -----------------------------
+/// Painter using app accent color
 class TweenedWaveformPainter extends CustomPainter {
   final double animationValue;
   final double centerYFactor;
@@ -176,18 +162,16 @@ class TweenedWaveformPainter extends CustomPainter {
     final double breathing = 0.9 + 0.2 * math.sin(animationValue * 2 * math.pi * breathSpeed);
     final double phaseShift = animationValue * 2 * math.pi;
 
-    // --- 🎨 COLOR ADAPTATION ---
-    // Using your app's theme colors instead of the hardcoded ones
-    final shader = const LinearGradient(
+    // Use app accent color gradient
+    final shader = LinearGradient(
       colors: [
-        AppColors.electricPurple,
-        AppColors.englishBlue, // Using blue as a mid-point
-        AppColors.aquaAccent,
+        AppColors.accent,
+        AppColors.accentLight,
+        AppColors.accent.withOpacity(0.8),
       ],
       begin: Alignment.centerLeft,
       end: Alignment.centerRight,
     ).createShader(Rect.fromLTWH(0, 0, width, height));
-    // --- END COLOR ADAPTATION ---
 
     void drawWave({
       required double amplitude,
@@ -209,28 +193,16 @@ class TweenedWaveformPainter extends CustomPainter {
         path.lineTo(x, y);
       }
 
-      // Outer glow
-      canvas.drawPath(
-        path,
-        Paint()
-          ..shader = shader
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = strokeWidth + 2
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, _WaveParams.outerGlowBlur)
-          ..blendMode = BlendMode.plus
-          ..color = Colors.white.withOpacity(glowOpacity),
-      );
-
-      // Inner glow
+      // Minimal glow (reduced from original)
       canvas.drawPath(
         path,
         Paint()
           ..shader = shader
           ..style = PaintingStyle.stroke
           ..strokeWidth = strokeWidth + 1
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, _WaveParams.innerGlowBlur)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, _WaveParams.outerGlowBlur)
           ..blendMode = BlendMode.plus
-          ..color = Colors.white.withOpacity((glowOpacity + 0.1).clamp(0.0, 0.7)),
+          ..color = Colors.white.withOpacity(glowOpacity * 0.6),
       );
 
       // Core stroke
@@ -284,5 +256,4 @@ class TweenedWaveformPainter extends CustomPainter {
           oldDelegate.amplitudeScale != amplitudeScale;
 }
 
-// Simple lerp helper
 double _lerp(double a, double b, double t) => a + (b - a) * t;

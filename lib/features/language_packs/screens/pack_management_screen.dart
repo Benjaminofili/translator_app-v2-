@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/storage_utils.dart';
 import '../../../core/utils/logger_utils.dart';
 import '../../../services/pack_downloader.dart';
 import '../widgets/language_pack_card.dart';
 
-/// 📦 Language Pack Management Screen
+/// 📦 Language Pack Management Screen - Google-style minimal
 class PackManagementScreen extends StatefulWidget {
   const PackManagementScreen({super.key});
 
@@ -58,14 +57,18 @@ class _PackManagementScreenState extends State<PackManagementScreen> {
 
         if (progress.status == DownloadStatus.completed) {
           _installedPacks[progress.packId] = true;
-          _showMessage('${progress.packId.toUpperCase()} installed successfully!');
+          _showMessage('${_getPackDisplayName(progress.packId)} ready to use');
         } else if (progress.status == DownloadStatus.failed) {
-          _showMessage('Download failed: ${progress.packId}', isError: true);
+          _showMessage('Download failed', isError: true);
         } else if (progress.status == DownloadStatus.cancelled) {
           _downloadProgress[progress.packId] = null;
         }
       });
     });
+  }
+
+  String _getPackDisplayName(String packId) {
+    return AppConstants.availablePacks[packId]?.name ?? packId;
   }
 
   Future<void> _downloadPack(String packId) async {
@@ -76,7 +79,7 @@ class _PackManagementScreenState extends State<PackManagementScreen> {
 
     if (!hasSpace) {
       _showMessage(
-        'Insufficient storage space (need ${packInfo.formattedSize})',
+        'Need ${packInfo.formattedSize} free space',
         isError: true,
       );
       return;
@@ -90,9 +93,13 @@ class _PackManagementScreenState extends State<PackManagementScreen> {
   }
 
   Future<void> _uninstallPack(String packId) async {
+    final packName = _getPackDisplayName(packId);
+
     final confirmed = await _showConfirmDialog(
-      title: 'Uninstall Pack',
-      message: 'Remove ${packId.toUpperCase()} from your device?',
+      title: 'Remove language pack?',
+      message: '$packName will be deleted from your device.',
+      confirmText: 'Remove',
+      isDestructive: true,
     );
 
     if (confirmed != true) return;
@@ -105,20 +112,13 @@ class _PackManagementScreenState extends State<PackManagementScreen> {
       setState(() {
         _installedPacks[packId] = false;
       });
-      _showMessage('${packId.toUpperCase()} uninstalled');
+      _showMessage('$packName removed');
     } else {
-      _showMessage('Failed to uninstall pack', isError: true);
+      _showMessage('Failed to remove pack', isError: true);
     }
   }
 
   Future<void> _cancelDownload(String packId) async {
-    final confirmed = await _showConfirmDialog(
-      title: 'Cancel Download',
-      message: 'Stop downloading ${packId.toUpperCase()}?',
-    );
-
-    if (confirmed != true) return;
-
     final success = await _downloader.cancelDownload(packId);
 
     if (success) {
@@ -149,11 +149,13 @@ class _PackManagementScreenState extends State<PackManagementScreen> {
   Future<bool?> _showConfirmDialog({
     required String title,
     required String message,
+    String confirmText = 'Confirm',
+    bool isDestructive = false,
   }) {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceCard,
+        backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
         ),
@@ -164,9 +166,14 @@ class _PackManagementScreenState extends State<PackManagementScreen> {
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+          TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirm'),
+            style: TextButton.styleFrom(
+              foregroundColor: isDestructive
+                  ? AppColors.error
+                  : AppColors.accent,
+            ),
+            child: Text(confirmText),
           ),
         ],
       ),
@@ -181,6 +188,7 @@ class _PackManagementScreenState extends State<PackManagementScreen> {
         content: Text(message),
         backgroundColor: isError ? AppColors.error : AppColors.success,
         behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -189,7 +197,7 @@ class _PackManagementScreenState extends State<PackManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Language Packs'),
+        title: const Text('Offline languages'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -198,80 +206,107 @@ class _PackManagementScreenState extends State<PackManagementScreen> {
           ),
         ],
       ),
-      body: Container(
-        decoration: AppTheme.getGradientBackground(),
-        child: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _buildPackList(),
-      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _buildPackList(),
     );
   }
 
   Widget _buildPackList() {
-    return RefreshIndicator(
-      onRefresh: _loadInstalledPacks,
-      child: ListView(
-        padding: const EdgeInsets.all(AppConstants.paddingMedium),
+    // Separate downloaded and available packs
+    final downloadedPacks = <String>[];
+    final availablePacks = <String>[];
+
+    for (final packId in AppConstants.availablePacks.keys) {
+      final isInstalled = _installedPacks[packId] ?? false;
+      final progress = _downloadProgress[packId];
+      final isActive = progress != null &&
+          (progress.status == DownloadStatus.downloading ||
+              progress.status == DownloadStatus.paused);
+
+      if (isInstalled || isActive) {
+        downloadedPacks.add(packId);
+      } else {
+        availablePacks.add(packId);
+      }
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Downloaded section
+        if (downloadedPacks.isNotEmpty) ...[
+          _buildSectionHeader('Downloaded', downloadedPacks.length),
+          const SizedBox(height: 12),
+          ...downloadedPacks.map((packId) => _buildPackCard(packId)),
+          const SizedBox(height: 24),
+        ],
+
+        // Available section
+        if (availablePacks.isNotEmpty) ...[
+          _buildSectionHeader('Available', availablePacks.length),
+          const SizedBox(height: 12),
+          ...availablePacks.map((packId) => _buildPackCard(packId)),
+        ],
+
+        // Storage info at bottom
+        const SizedBox(height: 24),
+        _buildStorageInfo(),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title, int count) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Row(
         children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.all(AppConstants.paddingMedium),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Available Language Packs',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Download packs to enable offline translation',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: AppColors.textSecondary,
             ),
           ),
-
-          const SizedBox(height: 16),
-
-          // Pack cards
-          ...AppConstants.availablePacks.entries.map((entry) {
-            final packId = entry.key;
-            final packInfo = entry.value;
-            final isInstalled = _installedPacks[packId] ?? false;
-            final progress = _downloadProgress[packId];
-
-            // Check download status
-            final isDownloading = progress != null &&
-                progress.status == DownloadStatus.downloading;
-
-            final isPaused = progress != null &&
-                progress.status == DownloadStatus.paused;
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: AppConstants.paddingMedium),
-              child: LanguagePackCard(
-                packId: packId,
-                packInfo: packInfo,
-                isInstalled: isInstalled,
-                isDownloading: isDownloading,
-                isPaused: isPaused,
-                downloadProgress: progress,
-                onDownload: () => _downloadPack(packId),
-                onUninstall: () => _uninstallPack(packId),
-                onCancelDownload: () => _cancelDownload(packId),
-                onPauseDownload: () => _pauseDownload(packId),
-                onResumeDownload: () => _resumeDownload(packId),
-              ),
-            );
-          }).toList(),
-
-          const SizedBox(height: 16),
-
-          // Storage info
-          _buildStorageInfo(),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              count.toString(),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildPackCard(String packId) {
+    final packInfo = AppConstants.availablePacks[packId]!;
+    final isInstalled = _installedPacks[packId] ?? false;
+    final progress = _downloadProgress[packId];
+
+    final isDownloading = progress != null &&
+        progress.status == DownloadStatus.downloading;
+
+    final isPaused = progress != null &&
+        progress.status == DownloadStatus.paused;
+
+    return LanguagePackCard(
+      packId: packId,
+      packInfo: packInfo,
+      isInstalled: isInstalled,
+      isDownloading: isDownloading,
+      isPaused: isPaused,
+      downloadProgress: progress,
+      onDownload: () => _downloadPack(packId),
+      onUninstall: () => _uninstallPack(packId),
+      onCancelDownload: () => _cancelDownload(packId),
+      onPauseDownload: () => _pauseDownload(packId),
+      onResumeDownload: () => _resumeDownload(packId),
     );
   }
 
@@ -284,35 +319,31 @@ class _PackManagementScreenState extends State<PackManagementScreen> {
         final sizeInMB = snapshot.data! / (1024 * 1024);
         final installedCount = _installedPacks.values.where((v) => v).length;
 
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(AppConstants.paddingLarge),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.storage,
-                  color: AppColors.aquaAccent,
-                  size: 32,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Storage Used',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '$installedCount packs • ${sizeInMB.toStringAsFixed(1)} MB',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+        if (installedCount == 0) return const SizedBox.shrink();
+
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
+            border: Border.all(
+              color: AppColors.divider,
+              width: 1,
             ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.storage_outlined,
+                color: AppColors.textSecondary,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                '$installedCount ${installedCount == 1 ? 'pack' : 'packs'} • ${sizeInMB.toStringAsFixed(0)} MB',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+            ],
           ),
         );
       },

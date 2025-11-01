@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/utils/format_utils.dart';
 import '../../../services/pack_downloader.dart';
 import 'download_progress_indicator.dart';
 
-/// 🎴 Language Pack Card
+/// 🎴 Language Pack Card - Minimal, Google-style
 ///
-/// Beautiful card showing pack info with download/uninstall actions
+/// Clean card with clear hierarchy and single accent color
 class LanguagePackCard extends StatelessWidget {
   final String packId;
   final LanguagePackInfo packInfo;
@@ -39,67 +38,80 @@ class LanguagePackCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      elevation: isInstalled ? 6 : 4,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
-          gradient: isInstalled
-              ? LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.surfaceCard,
-              AppColors.getLanguageColor(packInfo.sourceLanguage)
-                  .withValues(alpha: 0.1),
-            ],
-          )
-              : null,
-        ),
+      margin: const EdgeInsets.only(bottom: 12),
+      child: InkWell(
+        onTap: isInstalled ? null : onDownload,
+        borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
         child: Padding(
-          padding: const EdgeInsets.all(AppConstants.paddingLarge),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header row
+              // Header: Language pair + status
               Row(
                 children: [
-                  // Language flags
-                  _buildLanguageIcons(),
-
-                  const SizedBox(width: 16),
-
-                  // Pack info
+                  // Language pair (text only, no decorative icons)
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Language names
                         Text(
                           packInfo.name,
                           style: Theme.of(context).textTheme.titleLarge,
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          packInfo.formattedSize,
-                          style: Theme.of(context).textTheme.bodySmall,
+
+                        // Size + status in one line
+                        Row(
+                          children: [
+                            Text(
+                              packInfo.formattedSize,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+
+                            // Status indicator (compact)
+                            if (isInstalled || isDownloading || isPaused) ...[
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: Container(
+                                  width: 4,
+                                  height: 4,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.textTertiary,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                              _buildCompactStatus(context),
+                            ],
+                          ],
                         ),
                       ],
                     ),
                   ),
 
-                  // Status badge
-                  _buildStatusBadge(context),
+                  // Status icon (minimal)
+                  if (isInstalled && !isDownloading && !isPaused)
+                    Icon(
+                      Icons.check_circle,
+                      color: AppColors.success,
+                      size: 20,
+                    ),
                 ],
               ),
 
-              // Download progress (if downloading or paused)
+              // Download progress (if active)
               if ((isDownloading || isPaused) && downloadProgress != null) ...[
                 const SizedBox(height: 16),
                 DownloadProgressIndicator(progress: downloadProgress!),
               ],
 
-              // Action buttons
-              const SizedBox(height: 16),
-              _buildActionButtons(context),
+              // Action buttons (only show if not in default state)
+              if (isInstalled || isDownloading || isPaused) ...[
+                const SizedBox(height: 16),
+                _buildActionButtons(context),
+              ],
             ],
           ),
         ),
@@ -107,222 +119,101 @@ class LanguagePackCard extends StatelessWidget {
     );
   }
 
-  /// Language flag icons
-  Widget _buildLanguageIcons() {
-    return Container(
-      width: 56,
-      height: 56,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(
-          colors: [
-            AppColors.getLanguageColor(packInfo.sourceLanguage).withValues(alpha: 0.3),
-            AppColors.getLanguageColor(packInfo.targetLanguage).withValues(alpha: 0.3),
-          ],
-        ),
-      ),
-      child: Center(
-        child: Text(
-          FormatUtils.formatLanguagePair(
-            packInfo.sourceLanguage,
-            packInfo.targetLanguage,
-            bidirectional: true,
-          ),
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-          textAlign: TextAlign.center,
-        ),
+  /// Compact status text (minimal)
+  Widget _buildCompactStatus(BuildContext context) {
+    String statusText;
+    Color statusColor;
+
+    if (isDownloading) {
+      statusText = 'Downloading';
+      statusColor = AppColors.textSecondary;
+    } else if (isPaused) {
+      statusText = 'Paused';
+      statusColor = AppColors.warning;
+    } else if (isInstalled) {
+      statusText = 'Downloaded';
+      statusColor = AppColors.success;
+    } else {
+      return const SizedBox.shrink();
+    }
+
+    return Text(
+      statusText,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: statusColor,
       ),
     );
   }
 
-  /// Status badge (installed/downloading/paused)
-  Widget _buildStatusBadge(BuildContext context) {
+  /// Action buttons with clear hierarchy
+  Widget _buildActionButtons(BuildContext context) {
+    // Downloading state: Pause + Cancel (secondary actions)
     if (isDownloading) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.aquaAccent.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 12,
-              height: 12,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(AppColors.aquaAccent),
+      return Row(
+        children: [
+          Expanded(
+            child: TextButton.icon(
+              onPressed: onPauseDownload,
+              icon: const Icon(Icons.pause, size: 18),
+              label: const Text('Pause'),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextButton.icon(
+              onPressed: onCancelDownload,
+              icon: const Icon(Icons.close, size: 18),
+              label: const Text('Cancel'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.textTertiary,
               ),
             ),
-            const SizedBox(width: 6),
-            Text(
-              downloadProgress?.statusText ?? 'Loading',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppColors.aquaAccent,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
+    // Paused state: Resume (primary) + Cancel (secondary)
     if (isPaused) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.warning.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.pause_circle,
-              size: 14,
-              color: AppColors.warning,
+      return Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: ElevatedButton.icon(
+              onPressed: onResumeDownload,
+              icon: const Icon(Icons.play_arrow, size: 20),
+              label: const Text('Resume'),
             ),
-            const SizedBox(width: 4),
-            Text(
-              'Paused',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppColors.warning,
-                fontWeight: FontWeight.w600,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextButton(
+              onPressed: onCancelDownload,
+              child: const Text('Cancel'),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.textTertiary,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       );
     }
 
+    // Installed state: Remove (destructive, but not primary)
     if (isInstalled) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: AppColors.success.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.check_circle,
-              size: 14,
-              color: AppColors.success,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              'Installed',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: AppColors.success,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
+      return Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: onUninstall,
+          icon: const Icon(Icons.delete_outline, size: 18),
+          label: const Text('Remove'),
+          style: TextButton.styleFrom(
+            foregroundColor: AppColors.textTertiary,
+          ),
         ),
       );
     }
 
     return const SizedBox.shrink();
-  }
-
-  /// Action buttons (download/uninstall/pause/resume/cancel)
-  /// Action buttons (download/uninstall/pause/resume/cancel)
-  Widget _buildActionButtons(BuildContext context) {
-    if (isDownloading) {
-      return Row(
-        children: [
-          // Pause button
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: onPauseDownload,
-              icon: const Icon(Icons.pause, size: 18),
-              label: const Text('Pause'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.warning,
-                side: BorderSide(color: AppColors.warning.withValues(alpha: 0.5)),
-                minimumSize: const Size(0, 48),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Cancel button
-          Expanded(
-            child: OutlinedButton.icon(
-              onPressed: onCancelDownload,
-              icon: const Icon(Icons.close, size: 18),
-              label: const Text('Cancel'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.error,
-                side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
-                minimumSize: const Size(0, 48),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (isPaused) {
-      return Row(
-        children: [
-          // Resume button (larger)
-          Expanded(
-            flex: 3,
-            child: ElevatedButton.icon(
-              onPressed: onResumeDownload,
-              icon: const Icon(Icons.play_arrow, size: 20),
-              label: const Text('Resume'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(0, 48),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Cancel button (smaller)
-          Expanded(
-            flex: 2,
-            child: OutlinedButton.icon(
-              onPressed: onCancelDownload,
-              icon: const Icon(Icons.close, size: 18),
-              label: const Text('Cancel'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.error,
-                side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
-                minimumSize: const Size(0, 48),
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (isInstalled) {
-      return OutlinedButton.icon(
-        onPressed: onUninstall,
-        icon: const Icon(Icons.delete_outline),
-        label: const Text('Uninstall'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.error,
-          side: BorderSide(color: AppColors.error.withValues(alpha: 0.3)),
-          minimumSize: const Size(double.infinity, 48),
-        ),
-      );
-    }
-
-    return ElevatedButton.icon(
-      onPressed: onDownload,
-      icon: const Icon(Icons.download),
-      label: Text('Download (${packInfo.formattedSize})'),
-      style: ElevatedButton.styleFrom(
-        minimumSize: const Size(double.infinity, 48),
-      ),
-    );
   }
 }

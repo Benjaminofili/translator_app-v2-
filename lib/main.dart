@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:prototype_ai_core/core/transitions/transition_manager.dart';
+import 'package:prototype_ai_core/features/main_navigation/screens/main_navigation_screen.dart';
 import 'package:prototype_ai_core/services/notification_service.dart';
 import 'package:prototype_ai_core/services/background_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
+import 'core/constants/app_colors.dart';
 import 'core/utils/logger_utils.dart';
 import 'services/model_service.dart';
 import 'services/pack_downloader.dart';
 import 'features/language_packs/screens/pack_management_screen.dart';
 import 'package:prototype_ai_core/features/translator/screens/translation_screen.dart';
 import 'package:prototype_ai_core/features/home/screens/home_screen.dart';
-// Import the new liquid transitions
 import 'core/transitions/liquid_page_transitions.dart';
 
 void main() async {
@@ -87,9 +88,9 @@ class VoiceTranslatorApp extends StatelessWidget {
       theme: AppTheme.darkTheme,
       themeMode: ThemeMode.dark,
 
-      // Home screen (placeholder for now)
+      // Home screen
       home:
-      HomePage(),
+      MainNavigationScreen()
       // const HomeScreen(),
     );
   }
@@ -105,127 +106,151 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: AppTheme.getGradientBackground(),
-        child: SafeArea(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // App Logo (placeholder)
-                Icon(
-                  Icons.translate_rounded,
-                  size: 100,
-                  color: Theme.of(context).colorScheme.primary,
+      body: SafeArea(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // App Logo (placeholder)
+              Icon(
+                Icons.translate_rounded,
+                size: 80,
+                color: AppColors.accent,
+              ),
+
+              const SizedBox(height: 24),
+
+              // App Name
+              Text(
+                AppConstants.appName,
+                style: Theme.of(context).textTheme.displayLarge?.copyWith(
+                  fontSize: 32,
                 ),
+              ),
 
-                const SizedBox(height: 32),
+              const SizedBox(height: 8),
 
-                // App Name
-                Text(
-                  AppConstants.appName,
-                  style: Theme.of(context).textTheme.displaySmall,
-                ),
-
-                const SizedBox(height: 8),
-
-                // App Description
-                Text(
+              // App Description
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 48),
+                child: Text(
                   AppConstants.appDescription,
                   style: Theme.of(context).textTheme.bodyMedium,
                   textAlign: TextAlign.center,
                 ),
+              ),
 
-                const SizedBox(height: 48),
+              const SizedBox(height: 48),
 
-                // Status Card
-                Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: [
-                        _buildStatusRow(
-                          context,
-                          icon: Icons.check_circle,
-                          label: 'Core System',
-                          status: 'Ready',
-                          isReady: true,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildStatusRow(
-                          context,
-                          icon: Icons.downloading,
-                          label: 'Language Packs',
-                          status: '0 installed',
-                          isReady: false,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildStatusRow(
-                          context,
-                          icon: Icons.mic,
-                          label: 'Voice System',
-                          status: 'Pending',
-                          isReady: false,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildStatusRow(
-                          context,
-                          icon: Icons.cloud_download,
-                          label: 'Background Service',
-                          status: 'Active',
-                          isReady: true,
-                        ),
-                      ],
-                    ),
+              // Status Card
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 24),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
+                  border: Border.all(
+                    color: AppColors.divider,
+                    width: 1,
                   ),
                 ),
+                child: Column(
+                  children: [
+                    _buildStatusRow(
+                      context,
+                      icon: Icons.check_circle_outline,
+                      label: 'Core System',
+                      status: 'Ready',
+                      isReady: true,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildStatusRow(
+                      context,
+                      icon: Icons.download_outlined,
+                      label: 'Language Packs',
+                      status: '0 installed',
+                      isReady: false,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildStatusRow(
+                      context,
+                      icon: Icons.mic_none,
+                      label: 'Voice System',
+                      status: 'Pending',
+                      isReady: false,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildStatusRow(
+                      context,
+                      icon: Icons.cloud_download_outlined,
+                      label: 'Background Service',
+                      status: 'Active',
+                      isReady: true,
+                    ),
+                  ],
+                ),
+              ),
 
-                const SizedBox(height: 32),
+              const SizedBox(height: 32),
 
-                // Action Button
-                ElevatedButton.icon(
+              // Primary Action Button
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(context).push(
                       TransitionManager.fadeScale(const TranslatorScreen()),
                     );
                   },
-                  icon: const Icon(Icons.mic),
-                  label: const Text('Start Translating'),
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
+                    minimumSize: const Size(double.infinity, 56),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.mic_none, size: 20),
+                      const SizedBox(width: 8),
+                      const Text('Start Translating'),
+                    ],
                   ),
                 ),
+              ),
 
-                const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-                OutlinedButton.icon(
+              // Secondary Action Button
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: TextButton(
                   onPressed: () {
-                    // Navigate using the new extension method
-                    context.pushLiquidSlide(const PackManagementScreen());
+                    Navigator.of(context).push(
+                      TransitionManager.fadeScale(const  PackManagementScreen()),
+                    );
                   },
-                  icon: const Icon(Icons.download),
-                  label: const Text('Manage Language Packs'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 32,
-                      vertical: 16,
-                    ),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.download_outlined, size: 18),
+                      const SizedBox(width: 8),
+                      const Text('Manage Language Packs'),
+                    ],
                   ),
                 ),
+              ),
 
-                const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-                // Version Info
-                Text(
-                  'Version ${AppConstants.appVersion}',
-                  style: Theme.of(context).textTheme.bodySmall,
+              // Version Info
+              Text(
+                'Version ${AppConstants.appVersion}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppColors.textTertiary,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -243,12 +268,10 @@ class HomeScreen extends StatelessWidget {
       children: [
         Icon(
           icon,
-          color: isReady
-              ? Theme.of(context).colorScheme.secondary
-              : Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-          size: 24,
+          color: isReady ? AppColors.success : AppColors.textTertiary,
+          size: 20,
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,13 +288,11 @@ class HomeScreen extends StatelessWidget {
           ),
         ),
         Container(
-          width: 8,
-          height: 8,
+          width: 6,
+          height: 6,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isReady
-                ? Theme.of(context).colorScheme.secondary
-                : Theme.of(context).colorScheme.error.withOpacity(0.5),
+            color: isReady ? AppColors.success : AppColors.textTertiary,
           ),
         ),
       ],

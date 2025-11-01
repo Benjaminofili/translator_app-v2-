@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../core/constants/app_constants.dart';
 import 'package:country_flags/country_flags.dart';
 
 /// Extracts clean display name for chips (e.g., "English" from "English (English)")
@@ -15,7 +15,7 @@ String shortName(String fullLabel) {
   }
 }
 
-/// In-memory persistence stub for recents/favorites (replace with SharedPreferences later)
+/// In-memory persistence stub for recents/favorites
 class _LanguagePrefs {
   static final List<String> recents = <String>[];
   static final Set<String> favorites = <String>{};
@@ -35,11 +35,11 @@ class _LanguagePrefs {
   }
 }
 
-/// Premium Language Selector with bottom sheet, search, flags, and animated swap
+/// Minimal Language Selector - Google Translate style
 class LanguageSelectorWidget extends StatefulWidget {
   final String sourceLanguage;
   final String targetLanguage;
-  final Map<String, String> availableLanguages; // e.g., {'en': 'English (English)'}
+  final Map<String, String> availableLanguages;
   final ValueChanged<String> onSourceChanged;
   final ValueChanged<String> onTargetChanged;
   final VoidCallback onSwap;
@@ -59,17 +59,13 @@ class LanguageSelectorWidget extends StatefulWidget {
 }
 
 class _LanguageSelectorWidgetState extends State<LanguageSelectorWidget> {
-  double _swapTurns = 0.0; // 0.0 or 0.5
-  bool _swapPressed = false;
+  double _swapTurns = 0.0;
 
   void _handleSwapTap() async {
     HapticFeedback.mediumImpact();
     setState(() {
-      _swapPressed = true;
       _swapTurns = _swapTurns == 0.0 ? 0.5 : 0.0;
     });
-    await Future.delayed(const Duration(milliseconds: 140));
-    setState(() => _swapPressed = false);
 
     widget.onSwap();
     HapticFeedback.selectionClick();
@@ -78,9 +74,16 @@ class _LanguageSelectorWidgetState extends State<LanguageSelectorWidget> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: AppTheme.getCardDecoration(glowColor: AppColors.aquaAccent),
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(AppConstants.radiusMedium),
+        border: Border.all(
+          color: AppColors.divider,
+          width: 1,
+        ),
+      ),
       child: Row(
         children: [
           Expanded(
@@ -94,32 +97,20 @@ class _LanguageSelectorWidgetState extends State<LanguageSelectorWidget> {
               ),
             ),
           ),
-          const SizedBox(width: 16),
-          AnimatedScale(
-            scale: _swapPressed ? 0.92 : 1.0,
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOut,
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
             child: AnimatedRotation(
               turns: _swapTurns,
-              duration: const Duration(milliseconds: 380),
+              duration: const Duration(milliseconds: 300),
               curve: Curves.easeInOutCubic,
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: _handleSwapTap,
-                child: Ink(
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(colors: AppColors.gradientPrimary),
-                  ),
-                  child: const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Icon(Icons.swap_horiz, color: Colors.white),
-                  ),
-                ),
+              child: IconButton(
+                onPressed: _handleSwapTap,
+                icon: const Icon(Icons.swap_horiz),
+                color: AppColors.textSecondary,
+                iconSize: 24,
               ),
             ),
           ),
-          const SizedBox(width: 16),
           Expanded(
             child: _LanguageChip(
               code: widget.targetLanguage,
@@ -143,7 +134,7 @@ class _LanguageSelectorWidgetState extends State<LanguageSelectorWidget> {
       }) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.midnightBlue,
+      backgroundColor: AppColors.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -178,7 +169,7 @@ class _LanguageSelectorWidgetState extends State<LanguageSelectorWidget> {
                 left: 16,
                 right: 16,
                 top: 12,
-                bottom: 16 + MediaQuery.of(context).viewInsets.bottom, // keyboard-aware
+                bottom: 16 + MediaQuery.of(context).viewInsets.bottom,
               ),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
@@ -193,7 +184,7 @@ class _LanguageSelectorWidgetState extends State<LanguageSelectorWidget> {
                         width: 40,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.white24,
+                          color: AppColors.divider,
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),
@@ -202,7 +193,7 @@ class _LanguageSelectorWidgetState extends State<LanguageSelectorWidget> {
 
                     // Title
                     Text(
-                      "Select ${isSource ? "Source" : "Target"} Language",
+                      "Select ${isSource ? "source" : "target"} language",
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 12),
@@ -210,24 +201,16 @@ class _LanguageSelectorWidgetState extends State<LanguageSelectorWidget> {
                     // Search bar
                     TextField(
                       onChanged: (val) => setSheetState(() => query = val),
-                      style: const TextStyle(color: Colors.white),
                       autofocus: true,
                       decoration: InputDecoration(
                         hintText: "Search languages...",
-                        hintStyle: const TextStyle(color: Colors.white54),
-                        prefixIcon: const Icon(Icons.search, color: Colors.white70),
+                        prefixIcon: Icon(Icons.search, color: AppColors.textSecondary),
                         suffixIcon: query.isNotEmpty
                             ? IconButton(
-                          icon: const Icon(Icons.clear, color: Colors.white70),
+                          icon: Icon(Icons.clear, color: AppColors.textSecondary),
                           onPressed: () => setSheetState(() => query = ''),
                         )
                             : null,
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.1),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -250,7 +233,7 @@ class _LanguageSelectorWidgetState extends State<LanguageSelectorWidget> {
                                   setSheetState(() => _LanguagePrefs.toggleFavorite(code));
                                 },
                               ),
-                            const Divider(),
+                            Divider(color: AppColors.divider),
                           ],
 
                           // Recents
@@ -266,7 +249,7 @@ class _LanguageSelectorWidgetState extends State<LanguageSelectorWidget> {
                                   setSheetState(() => _LanguagePrefs.toggleFavorite(code));
                                 },
                               ),
-                            const Divider(),
+                            Divider(color: AppColors.divider),
                           ],
 
                           // All languages
@@ -276,10 +259,13 @@ class _LanguageSelectorWidgetState extends State<LanguageSelectorWidget> {
                               padding: const EdgeInsets.symmetric(vertical: 24),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
-                                children: const [
-                                  Icon(Icons.search_off, color: Colors.white54),
-                                  SizedBox(width: 8),
-                                  Text("No matches found", style: TextStyle(color: Colors.white70)),
+                                children: [
+                                  Icon(Icons.search_off, color: AppColors.textTertiary),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    "No matches found",
+                                    style: TextStyle(color: AppColors.textSecondary),
+                                  ),
                                 ],
                               ),
                             )
@@ -308,7 +294,7 @@ class _LanguageSelectorWidgetState extends State<LanguageSelectorWidget> {
   }
 }
 
-/// Chip with flag + label + dropdown icon, with ripple feedback
+/// Minimal chip with flag + label
 class _LanguageChip extends StatelessWidget {
   final String code;
   final String label;
@@ -324,26 +310,30 @@ class _LanguageChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Ink(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withOpacity(0.12)),
-        ),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            CountryFlag.fromLanguageCode(code, theme:const ImageTheme( height: 20, width: 28)),
+            CountryFlag.fromLanguageCode(
+              code,
+              theme: const ImageTheme(height: 16, width: 24),
+            ),
             const SizedBox(width: 8),
-            Expanded(
+            Flexible(
               child: Text(
                 shortName(label),
                 style: Theme.of(context).textTheme.titleMedium,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const Icon(Icons.arrow_drop_down, color: Colors.white70),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.arrow_drop_down,
+              color: AppColors.textTertiary,
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -351,7 +341,7 @@ class _LanguageChip extends StatelessWidget {
   }
 }
 
-/// List tile with flag, label, selected indicator, and favorite toggle
+/// List tile with flag, label, and favorite toggle
 class _LanguageTile extends StatelessWidget {
   final String code;
   final String label;
@@ -371,35 +361,40 @@ class _LanguageTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final trailing = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (selected)
-          const Icon(Icons.check_circle, color: Colors.white70, size: 20),
-        IconButton(
-          icon: Icon(
-            isFavorite || _LanguagePrefs.favorites.contains(code)
-                ? Icons.star
-                : Icons.star_border,
-            color: Colors.white70,
-            size: 20,
-          ),
-          onPressed: onToggleFavorite,
-          tooltip: 'Favorite',
-        ),
-      ],
-    );
-
     return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 4),
-      leading: CountryFlag.fromLanguageCode(code, theme: const ImageTheme(height: 24, width: 32),),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      leading: CountryFlag.fromLanguageCode(
+        code,
+        theme: const ImageTheme(height: 20, width: 28),
+      ),
       title: Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: Theme.of(context).textTheme.bodyLarge,
       ),
-      trailing: trailing,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (selected)
+            Icon(
+              Icons.check_circle,
+              color: AppColors.success,
+              size: 20,
+            ),
+          IconButton(
+            icon: Icon(
+              isFavorite || _LanguagePrefs.favorites.contains(code)
+                  ? Icons.star
+                  : Icons.star_border,
+              color: AppColors.textSecondary,
+              size: 20,
+            ),
+            onPressed: onToggleFavorite,
+            tooltip: 'Favorite',
+          ),
+        ],
+      ),
       onTap: onTap,
     );
   }
@@ -412,11 +407,11 @@ class _SectionTitle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4, top: 8, bottom: 4),
+      padding: const EdgeInsets.only(left: 4, top: 12, bottom: 4),
       child: Text(
         title,
-        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-          color: Colors.white70,
+        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+          color: AppColors.textSecondary,
         ),
       ),
     );
