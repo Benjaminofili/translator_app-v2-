@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 import 'package:prototype_ai_core/core/transitions/transition_manager.dart';
 import 'package:prototype_ai_core/features/main_navigation/screens/main_navigation_screen.dart';
 import 'package:prototype_ai_core/services/notification_service.dart';
@@ -14,6 +15,11 @@ import 'features/language_packs/screens/pack_management_screen.dart';
 import 'package:prototype_ai_core/features/translator/screens/translation_screen.dart';
 import 'package:prototype_ai_core/features/home/screens/home_screen.dart';
 import 'core/transitions/liquid_page_transitions.dart';
+import 'package:prototype_ai_core/features/testing/stt_test_screen.dart';
+import 'dart:io';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
+
 
 void main() async {
   // Ensure Flutter binding is initialized
@@ -34,6 +40,29 @@ void main() async {
       systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
+
+
+  // await printExistingModelPaths();
+  // await printAllPossibleModelLocations();
+
+  // final possiblePaths = [
+  //   '/sdcard/Android/data/com.example.prototype_ai_core/files/models',
+  //   '/storage/emulated/0/Download/models',
+  //   '/storage/emulated/0/Documents/models',
+  //   '/data/user/0/com.example.prototype_ai_core/app_flutter/models',
+  // ];
+  //
+  // for (final path in possiblePaths) {
+  //   final dir = Directory(path);
+  //   if (dir.existsSync()) {
+  //     print('✅ Found: $path');
+  //     for (final file in dir.listSync(recursive: true)) {
+  //       print(' - ${file.path}');
+  //     }
+  //   } else {
+  //     print('❌ Not found: $path');
+  //   }
+  // }
 
   // Initialize services
   Logger.section('APP INITIALIZATION');
@@ -74,6 +103,46 @@ void main() async {
   runApp(const VoiceTranslatorApp());
 }
 
+Future<void> printExistingModelPaths() async {
+  final docsDir = await getApplicationDocumentsDirectory();
+  final modelsDir = Directory(path.join(docsDir.path, 'models'));
+
+  print('📁 Searching inside: ${modelsDir.path}\n');
+
+  if (!await modelsDir.exists()) {
+    print('⚠️ Models directory not found.');
+    return;
+  }
+
+  final entries = modelsDir.listSync(recursive: true).whereType<File>();
+  for (final file in entries) {
+    print(file.path);
+  }
+}
+
+Future<void> printAllPossibleModelLocations() async {
+  final dirs = <String>[];
+
+  final appDoc = await getApplicationDocumentsDirectory();
+  dirs.add(p.join(appDoc.path, 'packs'));
+  dirs.add(p.join(appDoc.path, 'models'));
+
+  final tempDir = await getTemporaryDirectory();
+  dirs.add(p.join(tempDir.path, 'packs'));
+  dirs.add(p.join(tempDir.path, 'models'));
+
+  for (final d in dirs) {
+    final dir = Directory(d);
+    print('🔍 Checking: $d');
+    if (await dir.exists()) {
+      print('✅ Found directory: $d');
+      dir.listSync(recursive: true).forEach((f) => print('  • ${f.path}'));
+    } else {
+      print('❌ Not found: $d');
+    }
+  }
+}
+
 class VoiceTranslatorApp extends StatelessWidget {
   const VoiceTranslatorApp({super.key});
 
@@ -90,8 +159,8 @@ class VoiceTranslatorApp extends StatelessWidget {
 
       // Home screen
       home:
-      MainNavigationScreen()
-      // const HomeScreen(),
+      // MainNavigationScreen()
+      const HomeScreen(),
     );
   }
 }
@@ -236,6 +305,30 @@ class HomeScreen extends StatelessWidget {
                       Icon(Icons.download_outlined, size: 18),
                       const SizedBox(width: 8),
                       const Text('Manage Language Packs'),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Secondary Action Button
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      TransitionManager.fadeScale( const STTTestScreen()),
+                    );
+                  },
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.cabin, size: 18),
+                      const SizedBox(width: 8),
+                      const Text('🧪 Test STT'),
                     ],
                   ),
                 ),

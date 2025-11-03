@@ -48,6 +48,7 @@ dependencies {
 
     // ✅ Required for Java 8 desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+//    implementation(files("libs/sherpa-onnx-1.12.15.aar"))
 }
 
 flutter {

@@ -1,17 +1,21 @@
 import 'dart:async';
+import 'package:sherpa_onnx/src/online_stream.dart';
+
 import '../core/constants/app_constants.dart';
 import '../core/utils/storage_utils.dart';
 import '../core/utils/logger_utils.dart';
+import 'sherpa_service.dart';
 
 /// 🤖 Model Service
-/// 
-/// Manages AI models (STT, Translation, TTS)
-/// This is a placeholder that will connect to native code (Android/iOS) later
+///
+/// Manages AI models (STT, Translation, TTS) via Sherpa-ONNX
+/// Translation models exist but are not loaded/used in MVP
 class ModelService {
-  // Singleton pattern
   static final ModelService _instance = ModelService._internal();
   factory ModelService() => _instance;
   ModelService._internal();
+
+  final SherpaService _sherpa = SherpaService();
 
   // Loaded models tracking
   final Map<String, LoadedModel> _loadedModels = {};
@@ -30,10 +34,14 @@ class ModelService {
 
     try {
       Logger.section('MODEL SERVICE INITIALIZATION');
-      
-      // TODO: Initialize native platform channels
-      // This will connect to Android/iOS native code
-      
+
+      // Initialize Sherpa-ONNX
+      final sherpaInitialized = await _sherpa.initialize();
+      if (!sherpaInitialized) {
+        Logger.error('MODEL', 'Sherpa-ONNX initialization failed');
+        return false;
+      }
+
       _isInitialized = true;
       Logger.success('MODEL', 'Service initialized');
       return true;
@@ -67,7 +75,6 @@ class ModelService {
 
       Logger.info('MODEL', 'Loading pack: $packId');
 
-      // Get pack path
       final packPath = await StorageUtils.getPackPath(packId);
       final packInfo = AppConstants.availablePacks[packId];
 
@@ -75,9 +82,11 @@ class ModelService {
         return LoadResult.error('Pack info not found: $packId');
       }
 
-      // TODO: Load models via platform channel
-      // For now, simulate loading delay
-      await Future.delayed(const Duration(seconds: 2));
+      // Load via Sherpa-ONNX (STT + TTS only, skip translation)
+      final loadSuccess = await _sherpa.loadPack(packId);
+      if (!loadSuccess) {
+        return LoadResult.error('Failed to load pack via Sherpa-ONNX');
+      }
 
       // Create loaded model entry
       _loadedModels[packId] = LoadedModel(
@@ -89,7 +98,7 @@ class ModelService {
       );
 
       monitor.complete();
-      Logger.success('MODEL', 'Pack loaded: $packId');
+      Logger.success('MODEL', 'Pack loaded: $packId (STT + TTS ready)');
       return LoadResult.success(packId);
 
     } catch (e, stackTrace) {
@@ -106,9 +115,9 @@ class ModelService {
         return false;
       }
 
-      // TODO: Unload models via platform channel
-      
+      await _sherpa.unloadPack(packId);
       _loadedModels.remove(packId);
+
       Logger.success('MODEL', 'Pack unloaded: $packId');
       return true;
 
@@ -121,96 +130,62 @@ class ModelService {
   /// Unload all models
   Future<void> unloadAll() async {
     Logger.info('MODEL', 'Unloading all models');
-    
+
     for (final packId in _loadedModels.keys.toList()) {
       await unloadPack(packId);
     }
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // TRANSLATION OPERATIONS
+  // SPEECH-TO-TEXT (STT) - PRIMARY FOCUS
   // ═══════════════════════════════════════════════════════════════
 
-  /// Translate text from source to target language
+  /// Create a recognition stream for a language
+  OnlineStream? createRecognitionStream(String language) {
+    final stream = _sherpa.createStream(language);
+    if (stream == null) {
+      Logger.error('STT', 'Failed to create stream for: $language');
+    }
+    return stream;
+  }
+
+  /// Feed audio samples to recognition stream
+  void feedAudioSamples({
+    required String language,
+    required dynamic stream, // sherpa.OnlineStream
+    required List<double> samples,
+    int sampleRate = 16000,
+  }) {
+    _sherpa.acceptWaveform(language, stream, samples, sampleRate);
+  }
+
+  /// Get recognition result from stream
+  String getRecognitionResult({
+    required String language,
+    required dynamic stream, // sherpa.OnlineStream
+  }) {
+    return _sherpa.getResult(language, stream);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // TRANSLATION (NOT IMPLEMENTED - PLACEHOLDER)
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Translate text - MVP returns placeholder
   Future<TranslationResult> translate({
     required String text,
     required String sourceLanguage,
     required String targetLanguage,
   }) async {
-    final monitor = PerformanceMonitor('Translation $sourceLanguage→$targetLanguage');
+    Logger.info('TRANSLATION', 'Translation skipped in MVP');
 
-    try {
-      // Find appropriate pack
-      final packId = _findPackForLanguages(sourceLanguage, targetLanguage);
-      if (packId == null) {
-        return TranslationResult.error('No pack available for $sourceLanguage→$targetLanguage');
-      }
-
-      // Ensure pack is loaded
-      if (!_loadedModels.containsKey(packId)) {
-        final loadResult = await loadPack(packId);
-        if (!loadResult.success) {
-          return TranslationResult.error('Failed to load pack: $packId');
-        }
-      }
-
-      Logger.translation('Translating: "$text" ($sourceLanguage→$targetLanguage)');
-
-      // TODO: Call native translation method
-      // For now, return placeholder
-      await Future.delayed(const Duration(milliseconds: 200));
-      final translated = '[TRANSLATED] $text';
-
-      monitor.complete();
-      Logger.success('TRANSLATION', 'Result: "$translated"');
-
-      return TranslationResult.success(
-        original: text,
-        translated: translated,
-        sourceLanguage: sourceLanguage,
-        targetLanguage: targetLanguage,
-      );
-
-    } catch (e, stackTrace) {
-      Logger.error('TRANSLATION', 'Translation failed', e, stackTrace);
-      return TranslationResult.error('Translation error: $e');
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  // SPEECH-TO-TEXT (STT)
-  // ═══════════════════════════════════════════════════════════════
-
-  /// Start listening for speech
-  Future<bool> startListening(String language) async {
-    try {
-      Logger.audio('Starting STT for: $language');
-      
-      // TODO: Start STT via platform channel
-      await Future.delayed(const Duration(milliseconds: 100));
-      
-      return true;
-
-    } catch (e, stackTrace) {
-      Logger.error('STT', 'Start listening failed', e, stackTrace);
-      return false;
-    }
-  }
-
-  /// Stop listening for speech
-  Future<String?> stopListening() async {
-    try {
-      Logger.audio('Stopping STT');
-      
-      // TODO: Stop STT and get result via platform channel
-      await Future.delayed(const Duration(milliseconds: 100));
-      
-      return 'Sample recognized text';
-
-    } catch (e, stackTrace) {
-      Logger.error('STT', 'Stop listening failed', e, stackTrace);
-      return null;
-    }
+    // Return placeholder
+    return TranslationResult.success(
+      original: text,
+      translated: '[$targetLanguage] $text',
+      sourceLanguage: sourceLanguage,
+      targetLanguage: targetLanguage,
+    );
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -221,17 +196,42 @@ class ModelService {
   Future<TTSResult> synthesizeSpeech({
     required String text,
     required String language,
+    double speed = 1.0,
   }) async {
     final monitor = PerformanceMonitor('TTS $language');
 
     try {
       Logger.audio('Synthesizing: "$text" ($language)');
 
-      // TODO: Call native TTS method
-      await Future.delayed(const Duration(milliseconds: 150));
+      // Find pack for language
+      final packId = _findPackForLanguage(language);
+      if (packId == null) {
+        return TTSResult.error('No pack for language: $language');
+      }
+
+      // Ensure pack is loaded
+      if (!_loadedModels.containsKey(packId)) {
+        final loadResult = await loadPack(packId);
+        if (!loadResult.success) {
+          return TTSResult.error('Failed to load pack');
+        }
+      }
+
+      // Synthesize via Sherpa-ONNX
+      final audioPath = await _sherpa.synthesizeSpeech(
+        text: text,
+        language: language,
+        speed: speed,
+      );
 
       monitor.complete();
-      return TTSResult.success(audioPath: '/temp/audio.wav');
+
+      if (audioPath != null) {
+        Logger.success('TTS', 'Audio saved: $audioPath');
+        return TTSResult.success(audioPath: audioPath);
+      } else {
+        return TTSResult.error('TTS generation failed');
+      }
 
     } catch (e, stackTrace) {
       Logger.error('TTS', 'Synthesis failed', e, stackTrace);
@@ -239,32 +239,15 @@ class ModelService {
     }
   }
 
-  /// Play synthesized audio
-  Future<bool> playAudio(String audioPath) async {
-    try {
-      Logger.audio('Playing audio: $audioPath');
-      
-      // TODO: Play audio via platform channel
-      await Future.delayed(const Duration(seconds: 1));
-      
-      return true;
-
-    } catch (e, stackTrace) {
-      Logger.error('AUDIO', 'Playback failed', e, stackTrace);
-      return false;
-    }
-  }
-
   // ═══════════════════════════════════════════════════════════════
   // HELPERS
   // ═══════════════════════════════════════════════════════════════
 
-  /// Find pack that supports the language pair
-  String? _findPackForLanguages(String source, String target) {
+  /// Find pack for a single language
+  String? _findPackForLanguage(String language) {
     for (final entry in AppConstants.availablePacks.entries) {
       final info = entry.value;
-      if ((info.sourceLanguage == source && info.targetLanguage == target) ||
-          (info.sourceLanguage == target && info.targetLanguage == source)) {
+      if (info.sourceLanguage == language || info.targetLanguage == language) {
         return entry.key;
       }
     }
@@ -291,7 +274,6 @@ class ModelService {
 // DATA CLASSES
 // ═══════════════════════════════════════════════════════════════
 
-/// Loaded model information
 class LoadedModel {
   final String packId;
   final String packPath;
@@ -307,11 +289,9 @@ class LoadedModel {
     required this.loadedAt,
   });
 
-  /// Time since loaded
   Duration get timeSinceLoaded => DateTime.now().difference(loadedAt);
 }
 
-/// Load result
 class LoadResult {
   final bool success;
   final String? packId;
@@ -332,7 +312,6 @@ class LoadResult {
   }
 }
 
-/// Translation result
 class TranslationResult {
   final bool success;
   final String? original;
@@ -370,7 +349,6 @@ class TranslationResult {
   }
 }
 
-/// TTS result
 class TTSResult {
   final bool success;
   final String? audioPath;
