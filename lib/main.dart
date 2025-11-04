@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 import 'package:prototype_ai_core/core/transitions/transition_manager.dart';
 import 'package:prototype_ai_core/features/main_navigation/screens/main_navigation_screen.dart';
+import 'package:prototype_ai_core/features/testing/tts_test_screen.dart';
 import 'package:prototype_ai_core/services/notification_service.dart';
 import 'package:prototype_ai_core/services/background_service.dart';
 import 'core/theme/app_theme.dart';
@@ -329,6 +330,30 @@ class HomeScreen extends StatelessWidget {
                       Icon(Icons.cabin, size: 18),
                       const SizedBox(width: 8),
                       const Text('🧪 Test STT'),
+                    ],
+                  ),
+                ),
+              ),
+
+
+              const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: TextButton(
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      TransitionManager.fadeScale( const SimpleTTSTestScreen()),
+                    );
+                  },
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.volume_up_sharp, size: 18),
+                      const SizedBox(width: 8),
+                      const Text('🔊 Test TTS'),
                     ],
                   ),
                 ),

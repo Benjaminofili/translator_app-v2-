@@ -9,6 +9,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
 )
 
 list(APPEND FLUTTER_FFI_PLUGIN_LIST
+  piper_tts
   sherpa_onnx_linux
 )
 

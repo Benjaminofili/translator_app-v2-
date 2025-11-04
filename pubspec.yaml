@@ -50,7 +50,7 @@ dependencies:
   just_audio: ^0.10.5
   audio_waveforms: ^1.3.0
   record: ^6.1.2
-  audioplayers: ^5.2.1
+  audioplayers: ^6.5.1
 
   # UI & Animations
   rive: ^0.13.20
@@ -71,6 +71,7 @@ dependencies:
   country_flags: ^4.1.0
   ffi: ^2.1.4
   sherpa_onnx: ^1.12.15
+  piper_tts: ^0.0.1
   # State Management (optional - for later)
   # provider: ^6.1.1
   # riverpod: ^2.4.9
